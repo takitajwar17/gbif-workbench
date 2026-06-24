@@ -8,16 +8,15 @@ import type { GeometryCollection as TopoGeometryCollection, Topology } from 'top
 import countries110m from 'world-atlas/countries-110m.json'
 import {
   AlertTriangle,
-  Braces,
   Check,
   CheckCircle2,
   ClipboardList,
   Code2,
   Copy,
   Database,
+  Download,
   ExternalLink,
   FileArchive,
-  FileJson,
   FileText,
   Info,
   Loader2,
@@ -40,7 +39,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { createExportZip, createJupyterNotebook, createQuartoNotebook } from './lib/exportPackage'
+import { createExportZip } from './lib/exportPackage'
 import { countryLabel, parseCountryList } from './lib/regions'
 import type {
   AnalysisType,
@@ -56,7 +55,7 @@ import type {
   WorkflowPackage,
 } from './lib/types'
 
-type WorkflowTab = 'r' | 'python' | 'sql' | 'predicate' | 'cleaning' | 'methods' | 'citation' | 'limitations'
+type WorkflowGroup = 'code' | 'query' | 'writeup' | 'cleaning'
 type Status = 'idle' | 'interpreting' | 'previewing' | 'ready' | 'error'
 type StepState = 'done' | 'current' | 'pending'
 
@@ -72,15 +71,14 @@ const ANALYSIS_OPTIONS: { value: AnalysisType; label: string }[] = [
 const SPATIAL_OPTIONS = ['Local / fine-scale', 'Country or regional', 'Continental or broad-scale']
 const SKILL_OPTIONS = ['Beginner', 'Intermediate', 'Advanced']
 const CODE_OPTIONS: PreferredLanguage[] = ['Both', 'R', 'Python']
-const WORKFLOW_TAB_LABELS: Record<WorkflowTab, string> = {
-  r: 'R',
-  python: 'Python',
-  sql: 'SQL',
-  predicate: 'Predicate',
-  cleaning: 'Cleaning',
-  methods: 'Methods',
-  citation: 'Citation',
-  limitations: 'Limits',
+// Workflow code is grouped into 4 tabs to reduce the previous 8-tab clutter
+// and make Code/Query/Write-up/Cleaning each feel like a distinct phase of
+// the research workflow. Each group exposes a sub-selector when needed.
+const WORKFLOW_GROUPS: Record<WorkflowGroup, { label: string; icon: ReactNode }> = {
+  code: { label: 'Code', icon: <Code2 /> },
+  query: { label: 'Query', icon: <Database /> },
+  writeup: { label: 'Write-up', icon: <FileText /> },
+  cleaning: { label: 'Cleaning', icon: <ClipboardList /> },
 }
 
 // Hoisted option lists with the "Infer automatically" sentinel prepended so
@@ -149,10 +147,6 @@ const STATUS_DOT_MAP: Record<Status, string> = {
 // Hoisted export-button icons. Capturing each icon as a single React element at
 // module scope lets ExportButton receive a stable prop reference across renders
 // instead of a freshly-constructed element on every parent render.
-const MARKDOWN_ICON = <FileText />
-const JSON_ICON = <FileJson />
-const HTML_ICON = <Braces />
-const SQL_ICON = <Database />
 const ZOOM_MAP_WIDTH = 960
 const ZOOM_MAP_HEIGHT = 520
 const GLOBAL_MAP_WIDTH = 260
@@ -197,7 +191,10 @@ function App() {
   const [workflow, setWorkflow] = useState<WorkflowPackage | null>(null)
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState('')
-  const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTab>('r')
+  const [activeWorkflowGroup, setActiveWorkflowGroup] = useState<WorkflowGroup>('code')
+  const [activeCodeLanguage, setActiveCodeLanguage] = useState<'r' | 'python'>('r')
+  const [activeWriteupTab, setActiveWriteupTab] = useState<'methods' | 'citation' | 'limitations'>('methods')
+  const [activeQueryTab, setActiveQueryTab] = useState<'sql' | 'predicate'>('sql')
 
   const isBusy = status === 'interpreting' || status === 'previewing'
   const topRisk = triage?.risks.find((risk) => risk.level === 'BLOCKING' || risk.level === 'HIGH')
@@ -432,8 +429,14 @@ function App() {
               preview={preview}
               workflow={workflow}
               query={query}
-              activeWorkflowTab={activeWorkflowTab}
-              onWorkflowTabChange={setActiveWorkflowTab}
+              activeWorkflowGroup={activeWorkflowGroup}
+              setActiveWorkflowGroup={setActiveWorkflowGroup}
+              activeCodeLanguage={activeCodeLanguage}
+              setActiveCodeLanguage={setActiveCodeLanguage}
+              activeWriteupTab={activeWriteupTab}
+              setActiveWriteupTab={setActiveWriteupTab}
+              activeQueryTab={activeQueryTab}
+              setActiveQueryTab={setActiveQueryTab}
             />
             <MethodSection />
           </div>
@@ -735,15 +738,27 @@ function TriageSection({
   preview,
   workflow,
   query,
-  activeWorkflowTab,
-  onWorkflowTabChange,
+  activeWorkflowGroup,
+  setActiveWorkflowGroup,
+  activeCodeLanguage,
+  setActiveCodeLanguage,
+  activeWriteupTab,
+  setActiveWriteupTab,
+  activeQueryTab,
+  setActiveQueryTab,
 }: {
   triage: TriageResult | null
   preview: DataPreview | null
   workflow: WorkflowPackage | null
   query: GbifQuery | null
-  activeWorkflowTab: WorkflowTab
-  onWorkflowTabChange: (tab: WorkflowTab) => void
+  activeWorkflowGroup: WorkflowGroup
+  setActiveWorkflowGroup: (group: WorkflowGroup) => void
+  activeCodeLanguage: 'r' | 'python'
+  setActiveCodeLanguage: (language: 'r' | 'python') => void
+  activeWriteupTab: 'methods' | 'citation' | 'limitations'
+  setActiveWriteupTab: (tab: 'methods' | 'citation' | 'limitations') => void
+  activeQueryTab: 'sql' | 'predicate'
+  setActiveQueryTab: (tab: 'sql' | 'predicate') => void
 }) {
   return (
     <Card className="min-w-0">
@@ -755,7 +770,19 @@ function TriageSection({
           <div className="space-y-5">
             <SupportPanel triage={triage} />
             <RiskPanel risks={triage.risks} />
-            <WorkflowPanel workflow={workflow} query={query} triage={triage} activeTab={activeWorkflowTab} setActiveTab={onWorkflowTabChange} />
+            <WorkflowPanel
+              workflow={workflow}
+              query={query}
+              triage={triage}
+              activeGroup={activeWorkflowGroup}
+              setActiveGroup={setActiveWorkflowGroup}
+              activeCodeLanguage={activeCodeLanguage}
+              setActiveCodeLanguage={setActiveCodeLanguage}
+              activeWriteupTab={activeWriteupTab}
+              setActiveWriteupTab={setActiveWriteupTab}
+              activeQueryTab={activeQueryTab}
+              setActiveQueryTab={setActiveQueryTab}
+            />
           </div>
         ) : (
           <EmptyState title="Awaiting triage" body="GBIF Workbench will classify supported, conditional, exploratory, and unsupported claims after live analysis." />
@@ -839,25 +866,67 @@ function WorkflowPanel({
   workflow,
   query,
   triage,
-  activeTab,
-  setActiveTab,
+  activeGroup,
+  setActiveGroup,
+  activeCodeLanguage,
+  setActiveCodeLanguage,
+  activeWriteupTab,
+  setActiveWriteupTab,
+  activeQueryTab,
+  setActiveQueryTab,
 }: {
   workflow: WorkflowPackage
   query: GbifQuery
   triage: TriageResult
-  activeTab: WorkflowTab
-  setActiveTab: (tab: WorkflowTab) => void
+  activeGroup: WorkflowGroup
+  setActiveGroup: (group: WorkflowGroup) => void
+  activeCodeLanguage: 'r' | 'python'
+  setActiveCodeLanguage: (language: 'r' | 'python') => void
+  activeWriteupTab: 'methods' | 'citation' | 'limitations'
+  setActiveWriteupTab: (tab: 'methods' | 'citation' | 'limitations') => void
+  activeQueryTab: 'sql' | 'predicate'
+  setActiveQueryTab: (tab: 'sql' | 'predicate') => void
 }) {
-  const tabContent = {
-    r: workflow.rCode,
-    python: workflow.pythonCode,
-    sql: workflow.sqlCode,
-    predicate: workflow.downloadRequestJson,
-    cleaning: workflow.cleaningR,
-    methods: workflow.methodsText,
-    citation: workflow.citationInstructions,
-    limitations: workflow.limitationsText,
-  }[activeTab]
+  // Each group resolves to a piece of workflow text plus the right Copy label.
+  // `useMemo` keeps the prose block from recomputing its lines on unrelated
+  // parent re-renders (the write-up texts are the heaviest artifacts).
+  const codeContent = useMemo(
+    () => (activeCodeLanguage === 'r' ? workflow.rCode : workflow.pythonCode),
+    [activeCodeLanguage, workflow.rCode, workflow.pythonCode],
+  )
+  const codeLabel = activeCodeLanguage === 'r' ? 'R' : 'Python'
+
+  const queryContent = activeQueryTab === 'sql' ? workflow.sqlCode : workflow.downloadRequestJson
+  const queryLabel = activeQueryTab === 'sql' ? 'SQL' : 'Predicate'
+
+  const writeupContent = useMemo(() => {
+    if (activeWriteupTab === 'methods') return workflow.methodsText
+    if (activeWriteupTab === 'citation') return workflow.citationInstructions
+    return workflow.limitationsText
+  }, [activeWriteupTab, workflow.methodsText, workflow.citationInstructions, workflow.limitationsText])
+  const writeupLabel =
+    activeWriteupTab === 'methods'
+      ? 'Methods'
+      : activeWriteupTab === 'citation'
+        ? 'Citation'
+        : 'Limitations'
+
+  const copyContent =
+    activeGroup === 'code'
+      ? codeContent
+      : activeGroup === 'query'
+        ? queryContent
+        : activeGroup === 'writeup'
+          ? writeupContent
+          : workflow.cleaningR
+  const copyLabel =
+    activeGroup === 'code'
+      ? `Copy ${codeLabel}`
+      : activeGroup === 'query'
+        ? `Copy ${queryLabel}`
+        : activeGroup === 'writeup'
+          ? `Copy ${writeupLabel}`
+          : 'Copy R cleaning'
 
   return (
     <section id="exports" className="space-y-4">
@@ -866,7 +935,7 @@ function WorkflowPanel({
           <Code2 className="size-4 text-primary" />
           Generated workflow
         </div>
-        <CopyButton content={tabContent} label={`Copy ${WORKFLOW_TAB_LABELS[activeTab]}`} />
+        <CopyButton content={copyContent} label={copyLabel} />
       </div>
       <FilterSummary query={query} recommendedFilters={triage.recommendedFilters} />
       <div className="flex flex-wrap gap-2">
@@ -882,34 +951,151 @@ function WorkflowPanel({
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WorkflowTab)}>
+      <Tabs value={activeGroup} onValueChange={(value) => setActiveGroup(value as WorkflowGroup)}>
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-          {Object.entries(WORKFLOW_TAB_LABELS).map(([value, label]) => (
+          {Object.entries(WORKFLOW_GROUPS).map(([value, group]) => (
             <TabsTrigger key={value} value={value}>
-              {label}
+              {group.icon}
+              {group.label}
             </TabsTrigger>
           ))}
         </TabsList>
-        <TabsContent value={activeTab}>
-          <ScrollArea className="h-[360px] rounded-lg border bg-neutral-950">
-            <pre className="p-4 font-mono text-xs leading-6 text-neutral-50">
-              <code>{tabContent}</code>
-            </pre>
-          </ScrollArea>
+
+        <TabsContent value="code" className="min-h-0">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1" role="tablist" aria-label="Code language">
+              {(['r', 'python'] as const).map((language) => (
+                <button
+                  key={language}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeCodeLanguage === language}
+                  onClick={() => setActiveCodeLanguage(language)}
+                  className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                    activeCodeLanguage === language
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {language === 'r' ? 'R' : 'Python'}
+                </button>
+              ))}
+            </div>
+            <ExportButton
+              icon={<Download />}
+              label={codeLabel}
+              filename={activeCodeLanguage === 'r' ? 'gbif-workbench-workflow.R' : 'gbif-workbench-workflow.py'}
+              content={codeContent}
+            />
+          </div>
+          <CodeBlock content={codeContent} language={codeLabel} />
+        </TabsContent>
+
+        <TabsContent value="query" className="min-h-0">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1" role="tablist" aria-label="Query type">
+              {(['sql', 'predicate'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeQueryTab === tab}
+                  onClick={() => setActiveQueryTab(tab)}
+                  className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                    activeQueryTab === tab
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {tab === 'sql' ? 'SQL' : 'Predicate'}
+                </button>
+              ))}
+            </div>
+            <ExportButton
+              icon={<Download />}
+              label={queryLabel}
+              filename={activeQueryTab === 'sql' ? 'gbif-occurrence-cube.sql' : 'gbif-download-request.json'}
+              content={queryContent}
+              type={activeQueryTab === 'sql' ? undefined : 'application/json'}
+            />
+          </div>
+          <CodeBlock content={queryContent} language={queryLabel === 'SQL' ? 'sql' : 'json'} />
+        </TabsContent>
+
+        <TabsContent value="writeup" className="min-h-0">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1" role="tablist" aria-label="Write-up section">
+              {(['methods', 'citation', 'limitations'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeWriteupTab === tab}
+                  onClick={() => setActiveWriteupTab(tab)}
+                  className={`rounded-md px-2 py-1 text-xs font-medium capitalize transition-colors ${
+                    activeWriteupTab === tab
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+            <ExportButton
+              icon={<Download />}
+              label={writeupLabel}
+              filename={
+                activeWriteupTab === 'methods'
+                  ? 'gbif-workbench-methods.md'
+                  : activeWriteupTab === 'citation'
+                    ? 'gbif-workbench-citation.md'
+                    : 'gbif-workbench-limitations.md'
+              }
+              content={writeupContent}
+            />
+          </div>
+          <ProseBlock content={writeupContent} />
+        </TabsContent>
+
+        <TabsContent value="cleaning" className="min-h-0">
+          <div className="mb-2 flex items-center justify-end gap-2">
+            <ExportButton
+              icon={<Download />}
+              label="Cleaning"
+              filename="gbif-workbench-cleaning.R"
+              content={workflow.cleaningR}
+            />
+          </div>
+          <CodeBlock content={workflow.cleaningR} language="R" />
         </TabsContent>
       </Tabs>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <ExportButton icon={MARKDOWN_ICON} label="Markdown" filename="gbif-workbench-plan.md" content={workflow.markdownReport} />
-        <ExportButton icon={JSON_ICON} label="JSON" filename="gbif-workbench-plan.json" content={workflow.jsonPlan} type="application/json" />
-        <ExportButton icon={HTML_ICON} label="HTML" filename="gbif-workbench-report.html" content={workflow.htmlReport} type="text/html" />
-        <ExportButton icon={MARKDOWN_ICON} label="Quarto" filename="gbif-workbench-workflow.qmd" content={createQuartoNotebook(workflow)} />
-        <ExportButton icon={SQL_ICON} label="SQL" filename="gbif-occurrence-cube.sql" content={workflow.sqlCode} />
-        <ExportButton icon={JSON_ICON} label="Predicate" filename="gbif-download-request.json" content={workflow.downloadRequestJson} type="application/json" />
-        <ExportButton icon={JSON_ICON} label="Jupyter" filename="gbif-workbench-workflow.ipynb" content={createJupyterNotebook(workflow)} type="application/json" />
-        <ZipButton workflow={workflow} />
-      </div>
+      <ZipButton workflow={workflow} query={query} />
     </section>
+  )
+}
+
+// Code/prose block fills the parent column rather than fixed 360px so it
+// grows with the right-hand triage column on tall viewports. The ScrollArea
+// inside the code block handles overflow on smaller viewports.
+function CodeBlock({ content, language }: { content: string; language: string }) {
+  return (
+    <ScrollArea className="min-h-[420px] flex-1 rounded-lg border bg-neutral-950">
+      <pre className="p-4 font-mono text-xs leading-6 text-neutral-50">
+        <code data-language={language.toLowerCase()}>{content}</code>
+      </pre>
+    </ScrollArea>
+  )
+}
+
+function ProseBlock({ content }: { content: string }) {
+  return (
+    <ScrollArea className="min-h-[420px] flex-1 rounded-lg border bg-card">
+      <div className="p-5">
+        <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-foreground">{content}</pre>
+      </div>
+    </ScrollArea>
   )
 }
 
@@ -1553,23 +1739,23 @@ function CopyButton({ content, label }: { content: string; label: string }) {
   )
 }
 
-function ZipButton({ workflow }: { workflow: WorkflowPackage }) {
+function ZipButton({ workflow, query }: { workflow: WorkflowPackage; query: GbifQuery }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   return (
-    <div className="min-w-0">
+    <div className="flex min-w-0 justify-end">
       <Button
         type="button"
         variant="outline"
         size="sm"
-        className="w-full"
+        className="w-auto"
         disabled={loading}
         aria-busy={loading}
         onClick={async () => {
           setLoading(true)
           setError('')
           try {
-            const blob = await createExportZip(workflow)
+            const blob = await createExportZip(workflow, query)
             downloadBlob('gbif-workbench-export.zip', blob)
           } catch (caught) {
             setError(caught instanceof Error ? caught.message : 'Could not create ZIP export.')
@@ -1579,7 +1765,7 @@ function ZipButton({ workflow }: { workflow: WorkflowPackage }) {
         }}
       >
         {loading ? <Loader2 className="animate-spin" /> : <FileArchive />}
-        ZIP
+        Download ZIP
       </Button>
       {error && (
         <p className="mt-1 text-xs leading-5 text-destructive" role="alert">

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import JSZip from 'jszip'
 import { createExportZip, createJupyterNotebook, createQuartoNotebook } from '../exportPackage'
-import type { WorkflowPackage } from '../types'
+import type { GbifQuery, WorkflowPackage } from '../types'
 
 const workflow: WorkflowPackage = {
   rCode: 'library(rgbif)',
@@ -17,9 +17,17 @@ const workflow: WorkflowPackage = {
   jsonPlan: '{"ok":true}',
 }
 
+const query: GbifQuery = {
+  apiParams: { taxonKey: 5219704, country: 'BR', year: '2000,2025' },
+  apiSearchUrl: 'https://api.gbif.org/v1/occurrence/search',
+  gbifSearchUrl: 'https://www.gbif.org/occurrence/search',
+  sqlCubeQuery: 'SELECT 1',
+  downloadPredicate: { format: 'SIMPLE_CSV' },
+}
+
 describe('createExportZip', () => {
   it('creates a complete export archive from generated workflow text', async () => {
-    const blob = await createExportZip(workflow)
+    const blob = await createExportZip(workflow, query)
     expect(blob.size).toBeGreaterThan(100)
     expect(blob.type).toBe('application/zip')
 
@@ -31,12 +39,12 @@ describe('createExportZip', () => {
       'study_plan.ipynb',
       'report.html',
       'data_availability_summary.json',
+      'gbif_query_params.json',
       'gbif_download_request.json',
       'gbif_download.R',
       'gbif_download.py',
       'gbif_occurrence_cube.sql',
       'cleaning_pipeline.R',
-      'bias_checks.R',
       'methods_text.md',
       'limitations_text.md',
       'citation_instructions.md',
@@ -45,6 +53,7 @@ describe('createExportZip', () => {
     expect(Object.keys(archive.files).sort()).toEqual(expectedFiles.sort())
     await expect(readZipText(archive, 'gbif_occurrence_cube.sql')).resolves.toContain('SELECT COUNT(*)')
     await expect(readZipText(archive, 'gbif_download_request.json')).resolves.toContain('SIMPLE_CSV')
+    await expect(readZipText(archive, 'gbif_query_params.json')).resolves.toContain('"taxonKey": 5219704')
     await expect(readZipText(archive, 'citation_instructions.md')).resolves.toContain('Citation instructions')
     await expect(readZipText(archive, 'README.md')).resolves.toContain('GBIF Workbench Export')
     await expect(readZipText(archive, 'study_plan.qmd')).resolves.toContain('GBIF predicate download request')

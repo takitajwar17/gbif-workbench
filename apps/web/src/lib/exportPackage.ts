@@ -1,6 +1,6 @@
-import type { WorkflowPackage } from './types'
+import type { GbifQuery, WorkflowPackage } from './types'
 
-export async function createExportZip(workflow: WorkflowPackage) {
+export async function createExportZip(workflow: WorkflowPackage, query: GbifQuery) {
   // Lazy-load jszip so its ~100KB stays out of the initial bundle. Only the
   // ZIP export button triggers this path; the other seven exports build
   // blobs directly and never need JSZip.
@@ -12,12 +12,12 @@ export async function createExportZip(workflow: WorkflowPackage) {
   zip.file('study_plan.ipynb', createJupyterNotebook(workflow))
   zip.file('report.html', workflow.htmlReport)
   zip.file('data_availability_summary.json', workflow.jsonPlan)
+  zip.file('gbif_query_params.json', JSON.stringify(query.apiParams, null, 2))
   zip.file('gbif_download_request.json', workflow.downloadRequestJson)
   zip.file('gbif_download.R', workflow.rCode)
   zip.file('gbif_download.py', workflow.pythonCode)
   zip.file('gbif_occurrence_cube.sql', workflow.sqlCode)
   zip.file('cleaning_pipeline.R', workflow.cleaningR)
-  zip.file('bias_checks.R', workflow.cleaningR)
   zip.file('methods_text.md', workflow.methodsText)
   zip.file('limitations_text.md', workflow.limitationsText)
   zip.file('citation_instructions.md', workflow.citationInstructions)
