@@ -12,6 +12,7 @@ import {
   FileArchive,
   FileJson,
   FileText,
+  Info,
   Loader2,
   Map,
   Play,
@@ -19,7 +20,18 @@ import {
   Search,
   ShieldAlert,
 } from 'lucide-react'
-import './App.css'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { createExportZip, createJupyterNotebook, createQuartoNotebook } from './lib/exportPackage'
 import { countryLabel, parseCountryList } from './lib/regions'
 import type {
@@ -27,6 +39,7 @@ import type {
   CountBucket,
   DataPreview,
   GbifQuery,
+  OccurrencePoint,
   PreferredLanguage,
   Risk,
   StudyIntent,
@@ -36,6 +49,7 @@ import type {
 } from './lib/types'
 
 type WorkflowTab = 'r' | 'python' | 'sql' | 'predicate' | 'cleaning' | 'methods' | 'citation' | 'limitations'
+type Status = 'idle' | 'interpreting' | 'previewing' | 'ready' | 'error'
 
 const ANALYSIS_OPTIONS: { value: AnalysisType; label: string }[] = [
   { value: 'unknown', label: 'Let StudyScout infer' },
@@ -45,6 +59,10 @@ const ANALYSIS_OPTIONS: { value: AnalysisType; label: string }[] = [
   { value: 'temporal_trend_or_abundance', label: 'Trend / abundance triage' },
   { value: 'invasive_monitoring_preview', label: 'Invasive monitoring preview' },
 ]
+
+const SPATIAL_OPTIONS = ['Local / fine-scale', 'Country or regional', 'Continental or broad-scale']
+const SKILL_OPTIONS = ['Beginner', 'Intermediate', 'Advanced']
+const CODE_OPTIONS: PreferredLanguage[] = ['Both', 'R', 'Python']
 
 const DEMO_PROMPTS = [
   {
@@ -60,8 +78,6 @@ const DEMO_PROMPTS = [
     question: 'Can GBIF-mediated occurrence records support a species distribution model for Panthera leo in Africa?',
   },
 ]
-
-type Status = 'idle' | 'interpreting' | 'previewing' | 'ready' | 'error'
 
 interface StudyPlanResponse {
   intent: StudyIntent
@@ -101,6 +117,7 @@ function App() {
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<WorkflowTab>('r')
 
   const isBusy = status === 'interpreting' || status === 'previewing'
+  const topRisk = triage?.risks.find((risk) => risk.level === 'BLOCKING' || risk.level === 'HIGH')
 
   async function interpretScope() {
     const trimmedQuestion = question.trim()
@@ -223,125 +240,80 @@ function App() {
     setIntent((current) => (current ? { ...current, countries: parseCountryList(value) } : current))
   }
 
-  const topRisk = triage?.risks.find((risk) => risk.level === 'BLOCKING' || risk.level === 'HIGH')
-
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="#workspace" aria-label="GBIF StudyScout workspace">
-          <span className="brand-mark">S</span>
-          <span>
-            <strong>GBIF StudyScout</strong>
-            <small>Pre-download research triage</small>
-          </span>
-        </a>
-        <nav aria-label="Primary navigation">
-          <a href="#workspace">Workspace</a>
-          <a href="#method">Method</a>
-          <a href="#exports">Exports</a>
-        </nav>
-        <button className="topbar-action" type="button" onClick={analyze} disabled={isBusy || !question.trim()}>
-          {isBusy ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
-          Start plan
-        </button>
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
+        <div className="mx-auto flex h-16 w-full max-w-[1760px] items-center justify-between gap-3 px-4 lg:px-6">
+          <a className="flex min-w-0 items-center gap-3 text-foreground no-underline" href="#workspace" aria-label="GBIF StudyScout workspace">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">S</span>
+            <span className="min-w-0">
+              <strong className="block truncate text-sm font-semibold">GBIF StudyScout</strong>
+              <span className="block truncate text-xs text-muted-foreground">Pre-download research triage</span>
+            </span>
+          </a>
+          <nav className="hidden items-center gap-1 text-sm text-muted-foreground md:flex" aria-label="Primary navigation">
+            <Button variant="ghost" size="sm" asChild>
+              <a href="#workspace">Workspace</a>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <a href="#method">Method</a>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <a href="#exports">Exports</a>
+            </Button>
+          </nav>
+          <Button type="button" onClick={analyze} disabled={isBusy || !question.trim()} size="sm">
+            {isBusy ? <Loader2 className="animate-spin" /> : <Play />}
+            Start plan
+          </Button>
+        </div>
       </header>
 
-      <main id="workspace">
-        <section className="hero-band">
-          <div>
-            <h1>Plan your GBIF study before you download data.</h1>
-            <p>
-              Turn a biodiversity research question into a cautious GBIF data-use plan with live availability checks,
-              bias warnings, and reproducible workflow files.
+      <main id="workspace" className="mx-auto flex w-full max-w-[1760px] flex-col px-4 py-5 lg:px-6 xl:h-[calc(100vh-4rem)] xl:overflow-hidden">
+        <section className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,420px)] xl:shrink-0">
+          <div className="space-y-2">
+            <Badge variant="outline">Research workflow</Badge>
+            <h1 className="max-w-4xl text-3xl font-semibold tracking-normal text-foreground md:text-4xl">
+              Plan your GBIF study before you download data.
+            </h1>
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
+              Convert a biodiversity research question into scoped GBIF filters, live data availability checks, claim triage, and reproducible workflow exports.
             </p>
           </div>
-          <div className="hero-status" aria-live="polite">
-            <span className={`status-dot ${status}`}></span>
-            <span>{statusText(status, preview, topRisk)}</span>
-          </div>
+          <StatusCard status={status} preview={preview} topRisk={topRisk} />
         </section>
 
-        <section className="workbench" aria-label="StudyScout workbench">
-          <aside className="panel input-panel">
-            <PanelHeader icon={<Search size={18} />} title="Study idea" subtitle="Natural language in, structured plan out" />
-            <label className="field-label" htmlFor="question">
-              What do you want to study using GBIF-mediated data?
-            </label>
-            <textarea
-              id="question"
-              value={question}
-              onChange={(event) => changeQuestion(event.target.value)}
-              rows={8}
-              spellCheck
-              placeholder="Describe the research question, taxon, place, time period, and intended analysis."
+        <section className="grid gap-4 xl:min-h-0 xl:flex-1 xl:grid-cols-[390px_minmax(0,1fr)]">
+          <div data-pane="scope" className="space-y-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pb-4 xl:pr-2">
+            <StudyIdeaCard
+              question={question}
+              draftTaxon={draftTaxon}
+              draftRegion={draftRegion}
+              draftYears={draftYears}
+              draftAnalysis={draftAnalysis}
+              draftSpatialResolution={draftSpatialResolution}
+              draftSkillLevel={draftSkillLevel}
+              preferredLanguage={preferredLanguage}
+              isBusy={isBusy}
+              onQuestionChange={changeQuestion}
+              onDemoSelect={selectDemoPrompt}
+              onTaxonChange={setDraftTaxon}
+              onRegionChange={setDraftRegion}
+              onYearsChange={setDraftYears}
+              onAnalysisChange={setDraftAnalysis}
+              onSpatialResolutionChange={setDraftSpatialResolution}
+              onSkillLevelChange={setDraftSkillLevel}
+              onPreferredLanguageChange={setPreferredLanguage}
+              onInterpret={interpretScope}
+              onAnalyze={analyze}
             />
-            <div className="prompt-row" aria-label="Demo prompts">
-              {DEMO_PROMPTS.map((prompt) => (
-                <button key={prompt.question} type="button" onClick={() => selectDemoPrompt(prompt.question)} disabled={isBusy}>
-                  <span>{prompt.label}</span>
-                  <small>{prompt.question}</small>
-                </button>
-              ))}
-            </div>
-
-            <div className="advanced-grid">
-              <Field label="Taxon">
-                <input value={draftTaxon} onChange={(event) => setDraftTaxon(event.target.value)} placeholder="Optional taxon override" />
-              </Field>
-              <Field label="Region">
-                <input value={draftRegion} onChange={(event) => setDraftRegion(event.target.value)} placeholder="Optional region override" />
-              </Field>
-              <Field label="Years">
-                <input value={draftYears} onChange={(event) => setDraftYears(event.target.value)} placeholder="YYYY-YYYY" />
-              </Field>
-              <Field label="Intended analysis">
-                <select value={draftAnalysis} onChange={(event) => setDraftAnalysis(event.target.value as AnalysisType)}>
-                  {ANALYSIS_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Spatial resolution">
-                <select value={draftSpatialResolution} onChange={(event) => setDraftSpatialResolution(event.target.value)}>
-                  <option value="">Let StudyScout infer</option>
-                  <option>Local / fine-scale</option>
-                  <option>Country or regional</option>
-                  <option>Continental or broad-scale</option>
-                </select>
-              </Field>
-              <Field label="Skill level">
-                <select value={draftSkillLevel} onChange={(event) => setDraftSkillLevel(event.target.value)}>
-                  <option value="">Let StudyScout infer</option>
-                  <option>Beginner</option>
-                  <option>Intermediate</option>
-                  <option>Advanced</option>
-                </select>
-              </Field>
-              <Field label="Code output">
-                <select value={preferredLanguage} onChange={(event) => setPreferredLanguage(event.target.value as PreferredLanguage)}>
-                  <option>Both</option>
-                  <option>R</option>
-                  <option>Python</option>
-                </select>
-              </Field>
-            </div>
-
-            <button className="secondary-button" type="button" onClick={interpretScope} disabled={isBusy || !question.trim()}>
-              {isBusy ? <Loader2 className="spin" size={18} /> : <ClipboardList size={18} />}
-              Interpret scope first
-            </button>
-            <button className="primary-button" type="button" onClick={analyze} disabled={isBusy || !question.trim()}>
-              {isBusy ? <Loader2 className="spin" size={18} /> : <Search size={18} />}
-              Analyze study idea
-            </button>
 
             {error && (
-              <div className="error-box" role="alert">
-                <AlertTriangle size={18} />
-                <span>{error}</span>
-              </div>
+              <Alert variant="destructive">
+                <AlertTriangle className="col-start-1 row-span-2 mt-0.5 size-4" />
+                <AlertTitle>Analysis failed</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
 
             <InterpretationPanel
@@ -352,46 +324,19 @@ function App() {
               onRefresh={() => rerunEditedScope()}
               isBusy={isBusy}
             />
-          </aside>
-
-          <section className="panel preview-panel">
-            <PanelHeader icon={<Database size={18} />} title="GBIF data preview" subtitle="Aggregated search facets, not a full download" />
-            {preview ? <DataPreviewPanel preview={preview} /> : <EmptyState title="No preview yet" body="Run a study idea to fetch live GBIF counts, facets, and sample records." />}
-          </section>
-
-          <aside className="panel triage-panel">
-            <PanelHeader icon={<ShieldAlert size={18} />} title="Triage and workflow" subtitle="Separate availability, suitability, and claim strength" />
-            {triage && preview && workflow && query ? (
-              <>
-                <SupportPanel triage={triage} />
-                <RiskPanel risks={triage.risks} />
-                <WorkflowPanel
-                  workflow={workflow}
-                  query={query}
-                  triage={triage}
-                  activeTab={activeWorkflowTab}
-                  setActiveTab={setActiveWorkflowTab}
-                />
-              </>
-            ) : (
-              <EmptyState title="Awaiting triage" body="StudyScout will classify supported, conditional, and unsupported claims after live analysis completes." />
-            )}
-          </aside>
-        </section>
-
-        <section className="method-band" id="method">
-          <div>
-            <h2>Scientific guardrail</h2>
-            <p>
-              StudyScout does not certify data as valid. It summarizes GBIF-mediated data availability and common data-use
-              risks for a proposed research question. Final suitability depends on method choice, taxon expertise, scale,
-              and additional data sources.
-            </p>
           </div>
-          <div className="method-points">
-            <span>OpenAI structured outputs</span>
-            <span>Official GBIF identifiers</span>
-            <span>DOI-backed download guidance</span>
+
+          <div data-pane="results" className="grid min-w-0 gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pb-4 xl:pr-2 2xl:grid-cols-[minmax(0,1.05fr)_minmax(430px,0.95fr)]">
+            <DataPreviewSection preview={preview} />
+            <TriageSection
+              triage={triage}
+              preview={preview}
+              workflow={workflow}
+              query={query}
+              activeWorkflowTab={activeWorkflowTab}
+              onWorkflowTabChange={setActiveWorkflowTab}
+            />
+            <MethodSection />
           </div>
         </section>
       </main>
@@ -429,6 +374,121 @@ async function requestStudyIntent(payload: StudyPlanRequest): Promise<IntentResp
   return (await response.json()) as IntentResponse
 }
 
+function StudyIdeaCard({
+  question,
+  draftTaxon,
+  draftRegion,
+  draftYears,
+  draftAnalysis,
+  draftSpatialResolution,
+  draftSkillLevel,
+  preferredLanguage,
+  isBusy,
+  onQuestionChange,
+  onDemoSelect,
+  onTaxonChange,
+  onRegionChange,
+  onYearsChange,
+  onAnalysisChange,
+  onSpatialResolutionChange,
+  onSkillLevelChange,
+  onPreferredLanguageChange,
+  onInterpret,
+  onAnalyze,
+}: {
+  question: string
+  draftTaxon: string
+  draftRegion: string
+  draftYears: string
+  draftAnalysis: AnalysisType
+  draftSpatialResolution: string
+  draftSkillLevel: string
+  preferredLanguage: PreferredLanguage
+  isBusy: boolean
+  onQuestionChange: (value: string) => void
+  onDemoSelect: (prompt: string) => void
+  onTaxonChange: (value: string) => void
+  onRegionChange: (value: string) => void
+  onYearsChange: (value: string) => void
+  onAnalysisChange: (value: AnalysisType) => void
+  onSpatialResolutionChange: (value: string) => void
+  onSkillLevelChange: (value: string) => void
+  onPreferredLanguageChange: (value: PreferredLanguage) => void
+  onInterpret: () => void
+  onAnalyze: () => void
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <SectionTitle icon={<Search />} title="Study idea" description="Start with a research question, then refine the scope." />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="question">Research question</Label>
+          <Textarea
+            id="question"
+            value={question}
+            onChange={(event) => onQuestionChange(event.target.value)}
+            rows={7}
+            spellCheck
+            placeholder="Describe the taxon, place, time period, and analysis you want to run."
+            className="min-h-36 resize-y"
+          />
+        </div>
+
+        <div className="grid gap-2" aria-label="Demo prompts">
+          {DEMO_PROMPTS.map((prompt) => (
+            <Button key={prompt.question} type="button" variant="outline" className="h-auto justify-start whitespace-normal p-3 text-left" onClick={() => onDemoSelect(prompt.question)} disabled={isBusy}>
+              <span>
+                <span className="block text-sm font-medium">{prompt.label}</span>
+                <span className="mt-1 block text-xs leading-5 text-muted-foreground">{prompt.question}</span>
+              </span>
+            </Button>
+          ))}
+        </div>
+
+        <Separator />
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <TextField id="draft-taxon" label="Taxon" value={draftTaxon} onChange={onTaxonChange} placeholder="Optional taxon override" />
+          <TextField id="draft-region" label="Region" value={draftRegion} onChange={onRegionChange} placeholder="Optional region override" />
+          <TextField id="draft-years" label="Years" value={draftYears} onChange={onYearsChange} placeholder="YYYY-YYYY" />
+          <SelectField label="Analysis" value={draftAnalysis} onValueChange={(value) => onAnalysisChange(value as AnalysisType)} options={ANALYSIS_OPTIONS} />
+          <SelectField
+            label="Spatial scale"
+            value={draftSpatialResolution || 'infer'}
+            onValueChange={(value) => onSpatialResolutionChange(value === 'infer' ? '' : value)}
+            options={[{ value: 'infer', label: 'Let StudyScout infer' }, ...SPATIAL_OPTIONS.map((value) => ({ value, label: value }))]}
+          />
+          <SelectField
+            label="Skill level"
+            value={draftSkillLevel || 'infer'}
+            onValueChange={(value) => onSkillLevelChange(value === 'infer' ? '' : value)}
+            options={[{ value: 'infer', label: 'Let StudyScout infer' }, ...SKILL_OPTIONS.map((value) => ({ value, label: value }))]}
+          />
+          <SelectField
+            label="Code output"
+            value={preferredLanguage}
+            onValueChange={(value) => onPreferredLanguageChange(value as PreferredLanguage)}
+            options={CODE_OPTIONS.map((value) => ({ value, label: value }))}
+          />
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+          <Button type="button" variant="secondary" onClick={onInterpret} disabled={isBusy || !question.trim()}>
+            {isBusy ? <Loader2 className="animate-spin" /> : <ClipboardList />}
+            Interpret scope
+          </Button>
+          <Button type="button" onClick={onAnalyze} disabled={isBusy || !question.trim()}>
+            {isBusy ? <Loader2 className="animate-spin" /> : <Search />}
+            Analyze study idea
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function InterpretationPanel({
   intent,
   taxon,
@@ -447,156 +507,179 @@ function InterpretationPanel({
   if (!intent) return null
 
   return (
-    <div className="interpretation-card">
-      <div className="subhead">
-        <ClipboardList size={17} />
-        <span>Interpreted study</span>
-      </div>
-      <Field label="Taxon">
-        <input
-          value={intent.taxonText}
-          onChange={(event) => onChange({ taxonText: event.target.value, taxonQuery: event.target.value })}
-        />
-      </Field>
-      <Field label="Region">
-        <input value={intent.regionText} onChange={(event) => onChange({ regionText: event.target.value })} />
-      </Field>
-      <Field label="Countries">
-        <input value={intent.countries.join(', ')} onChange={(event) => onCountriesChange(event.target.value)} placeholder="ISO country codes" />
-      </Field>
-      <div className="two-fields">
-        <Field label="Start">
-          <input
-            inputMode="numeric"
-            value={intent.startYear ?? ''}
-            onChange={(event) => onChange({ startYear: numberOrNull(event.target.value) })}
+    <Card>
+      <CardHeader>
+        <SectionTitle icon={<ClipboardList />} title="Interpreted scope" description="Review the fields before running or rerunning the live preview." />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <TextField
+            id="intent-taxon"
+            label="Taxon"
+            value={intent.taxonText}
+            onChange={(value) => onChange({ taxonText: value, taxonQuery: value })}
           />
-        </Field>
-        <Field label="End">
-          <input
-            inputMode="numeric"
-            value={intent.endYear ?? ''}
-            onChange={(event) => onChange({ endYear: numberOrNull(event.target.value) })}
-          />
-        </Field>
-      </div>
-      <Field label="Analysis">
-        <select value={intent.analysisType} onChange={(event) => onChange({ analysisType: event.target.value as AnalysisType })}>
-          {ANALYSIS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Spatial resolution">
-        <input value={intent.spatialResolution} onChange={(event) => onChange({ spatialResolution: event.target.value })} />
-      </Field>
-      <Field label="Skill level">
-        <input value={intent.skillLevel} onChange={(event) => onChange({ skillLevel: event.target.value })} />
-      </Field>
-      {taxon && (
-        <div className="taxon-resolution">
-          <CheckCircle2 size={16} />
-          <span>
-            {taxon.scientificName} · {taxon.rank} · confidence {taxon.confidence}
-          </span>
+          <TextField id="intent-region" label="Region" value={intent.regionText} onChange={(value) => onChange({ regionText: value })} />
+          <TextField id="intent-countries" label="Countries" value={intent.countries.join(', ')} onChange={onCountriesChange} placeholder="ISO country codes" />
+          <div className="grid grid-cols-2 gap-3">
+            <TextField id="intent-start" label="Start" value={intent.startYear ?? ''} onChange={(value) => onChange({ startYear: numberOrNull(value) })} inputMode="numeric" />
+            <TextField id="intent-end" label="End" value={intent.endYear ?? ''} onChange={(value) => onChange({ endYear: numberOrNull(value) })} inputMode="numeric" />
+          </div>
+          <SelectField label="Analysis" value={intent.analysisType} onValueChange={(value) => onChange({ analysisType: value as AnalysisType })} options={ANALYSIS_OPTIONS} />
+          <TextField id="intent-spatial" label="Spatial scale" value={intent.spatialResolution} onChange={(value) => onChange({ spatialResolution: value })} />
+          <TextField id="intent-skill" label="Skill level" value={intent.skillLevel} onChange={(value) => onChange({ skillLevel: value })} />
         </div>
-      )}
-      {intent.ambiguities.length > 0 && (
-        <ul className="ambiguities">
-          {intent.ambiguities.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      )}
-      <button className="secondary-button" type="button" onClick={onRefresh} disabled={isBusy}>
-        {isBusy ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
-        Run live preview
-      </button>
-    </div>
+
+        {taxon && (
+          <Alert variant="success">
+            <CheckCircle2 className="col-start-1 row-span-2 mt-0.5 size-4" />
+            <AlertTitle>GBIF taxon match</AlertTitle>
+            <AlertDescription>
+              {taxon.scientificName} · {taxon.rank} · confidence {taxon.confidence}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {intent.ambiguities.length > 0 && (
+          <Alert variant="warning">
+            <Info className="col-start-1 row-span-2 mt-0.5 size-4" />
+            <AlertTitle>Scope notes</AlertTitle>
+            <AlertDescription>
+              <ul className="mt-1 list-disc space-y-1 pl-4">
+                {intent.ambiguities.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <Button type="button" variant="secondary" className="w-full" onClick={onRefresh} disabled={isBusy}>
+          {isBusy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+          Run live preview
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+function DataPreviewSection({ preview }: { preview: DataPreview | null }) {
+  return (
+    <Card className="min-w-0">
+      <CardHeader>
+        <SectionTitle icon={<Database />} title="GBIF data preview" description="Aggregated search facets from the current scope." />
+      </CardHeader>
+      <CardContent>{preview ? <DataPreviewPanel preview={preview} /> : <EmptyState title="No live preview yet" body="Run a study idea to fetch GBIF counts, facets, issue flags, and sample records." />}</CardContent>
+    </Card>
   )
 }
 
 function DataPreviewPanel({ preview }: { preview: DataPreview }) {
   return (
-    <div className="preview-stack">
+    <div className="space-y-4">
       {preview.warnings.map((warning) => (
-        <div key={warning} className="warning-box">
-          <AlertTriangle size={16} />
-          <span>{warning}</span>
-        </div>
+        <Alert key={warning} variant="warning">
+          <AlertTriangle className="col-start-1 row-span-2 mt-0.5 size-4" />
+          <AlertDescription>{warning}</AlertDescription>
+        </Alert>
       ))}
-      <div className="metric-grid">
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-2">
         <Metric label="Matching records" value={formatNumber(preview.counts.total)} />
         <Metric label="With coordinates" value={formatNumber(preview.counts.withCoordinates)} />
         <Metric label="Usable coordinates" value={formatNumber(preview.counts.withUsableCoordinates)} />
         <Metric label="Coordinates + date" value={formatNumber(preview.counts.withCoordinatesAndDate)} />
       </div>
-      <MapPreview points={preview.samplePoints} />
-      <div className="chart-grid">
+
+      <SpatialCoveragePreview preview={preview} />
+
+      <div className="grid gap-3 lg:grid-cols-2">
         <Histogram title="Records by year" buckets={preview.facets.years} />
         <BarList title="Country distribution" buckets={preview.facets.countries.slice(0, 8)} formatter={countryLabel} />
-      </div>
-      <div className="chart-grid">
         <BarList title="Basis of record" buckets={preview.facets.basisOfRecord} />
-        <BarList
-          title="Top datasets"
-          buckets={preview.facets.datasets.slice(0, 6).map((dataset) => ({ name: dataset.title ?? dataset.name, count: dataset.count }))}
-        />
-      </div>
-      <div className="chart-grid">
+        <BarList title="Top datasets" buckets={preview.facets.datasets.slice(0, 6).map((dataset) => ({ name: dataset.title ?? dataset.name, count: dataset.count }))} />
         <BarList title="Taxonomic breakdown" buckets={preview.facets.taxa.slice(0, 8)} />
         <BarList title="GBIF issues and flags" buckets={preview.facets.issues.slice(0, 8)} formatter={formatIssueName} />
       </div>
-      <div className="sampling-box">
-        <strong>Coordinate uncertainty</strong>
-        <span>
-          {formatNumber(preview.coordinateUncertainty.recordsWithUncertainty)} of{' '}
-          {formatNumber(preview.coordinateUncertainty.sampledRecords)} sampled records report uncertainty.
-        </span>
-        <small>
-          Median uncertainty:{' '}
-          {preview.coordinateUncertainty.medianMeters === null
-            ? 'not reported'
-            : `${formatNumber(preview.coordinateUncertainty.medianMeters)} m`}
-          ; over 10 km:{' '}
-          {new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(
-            preview.coordinateUncertainty.over10kmShare,
-          )}
-          .
-        </small>
-      </div>
-      <div className="sampling-box">
-        <strong>Sampling-event discovery</strong>
-        <span>
-          {formatNumber(preview.samplingEvents.datasetHits)} dataset hits checked across{' '}
-          {preview.samplingEvents.countriesChecked.length ? preview.samplingEvents.countriesChecked.join(', ') : 'global GBIF'}.
-        </span>
-        <small>{preview.samplingEvents.note}</small>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <InfoBox
+          title="Coordinate uncertainty"
+          body={`${formatNumber(preview.coordinateUncertainty.recordsWithUncertainty)} of ${formatNumber(preview.coordinateUncertainty.sampledRecords)} sampled records report uncertainty.`}
+          detail={`Median: ${preview.coordinateUncertainty.medianMeters === null ? 'not reported' : `${formatNumber(preview.coordinateUncertainty.medianMeters)} m`}; over 10 km: ${new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(preview.coordinateUncertainty.over10kmShare)}.`}
+        />
+        <InfoBox
+          title="Sampling-event discovery"
+          body={`${formatNumber(preview.samplingEvents.datasetHits)} dataset hits checked across ${preview.samplingEvents.countriesChecked.length ? preview.samplingEvents.countriesChecked.join(', ') : 'global GBIF'}.`}
+          detail={preview.samplingEvents.note}
+        />
       </div>
     </div>
   )
 }
 
+function TriageSection({
+  triage,
+  preview,
+  workflow,
+  query,
+  activeWorkflowTab,
+  onWorkflowTabChange,
+}: {
+  triage: TriageResult | null
+  preview: DataPreview | null
+  workflow: WorkflowPackage | null
+  query: GbifQuery | null
+  activeWorkflowTab: WorkflowTab
+  onWorkflowTabChange: (tab: WorkflowTab) => void
+}) {
+  return (
+    <Card className="min-w-0">
+      <CardHeader>
+        <SectionTitle icon={<ShieldAlert />} title="Triage and workflow" description="Claim support, risks, filters, and exportable code." />
+      </CardHeader>
+      <CardContent>
+        {triage && preview && workflow && query ? (
+          <div className="space-y-5">
+            <SupportPanel triage={triage} />
+            <RiskPanel risks={triage.risks} />
+            <WorkflowPanel workflow={workflow} query={query} triage={triage} activeTab={activeWorkflowTab} setActiveTab={onWorkflowTabChange} />
+          </div>
+        ) : (
+          <EmptyState title="Awaiting triage" body="StudyScout will classify supported, conditional, exploratory, and unsupported claims after live analysis." />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function SupportPanel({ triage }: { triage: TriageResult }) {
   return (
-    <section className="support-box">
-      <span className="support-label">Can GBIF support this study?</span>
-      <h2>{triage.support.headline}</h2>
-      <div className="readiness-grid">
+    <section className="space-y-4">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Can GBIF support this study?</span>
+          <Badge variant="outline">Scope dependent</Badge>
+        </div>
+        <h2 className="text-xl font-semibold leading-tight">{triage.support.headline}</h2>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
         <Readiness label="Spatial" value={triage.readiness.spatial} />
         <Readiness label="Temporal" value={triage.readiness.temporal} />
         <Readiness label="Taxonomic" value={triage.readiness.taxonomic} />
         <Readiness label="Data type" value={triage.readiness.dataType} />
       </div>
-      <SupportGroup title="Strongly supported" items={triage.support.stronglySupported} tone="good" />
-      <SupportGroup title="Conditionally supported" items={triage.support.conditionallySupported} tone="caution" />
-      <SupportGroup title="Exploratory only" items={triage.support.exploratoryOnly} tone="caution" />
-      <SupportGroup title="Not supported by occurrence-only data" items={triage.support.notSupportedWithOccurrenceOnly} tone="danger" />
-      <SupportGroup title="Insufficient data" items={triage.support.insufficientData} tone="danger" />
-      <SupportGroup title="Unsupported claims" items={triage.unsupportedClaims} tone="danger" />
-      <SupportGroup title="What to do next" items={triage.nextSteps} tone="good" />
+
+      <div className="space-y-3">
+        <SupportGroup title="Strongly supported" items={triage.support.stronglySupported} tone="good" />
+        <SupportGroup title="Conditionally supported" items={triage.support.conditionallySupported} tone="caution" />
+        <SupportGroup title="Exploratory only" items={triage.support.exploratoryOnly} tone="caution" />
+        <SupportGroup title="Not supported by occurrence-only data" items={triage.support.notSupportedWithOccurrenceOnly} tone="danger" />
+        <SupportGroup title="Insufficient data" items={triage.support.insufficientData} tone="danger" />
+        <SupportGroup title="Unsupported claims" items={triage.unsupportedClaims} tone="danger" />
+        <SupportGroup title="What to do next" items={triage.nextSteps} tone="good" />
+      </div>
     </section>
   )
 }
@@ -604,35 +687,35 @@ function SupportPanel({ triage }: { triage: TriageResult }) {
 function RiskPanel({ risks }: { risks: Risk[] }) {
   const sorted = [...risks].sort((a, b) => riskWeight(b.level) - riskWeight(a.level))
   return (
-    <section className="risk-list">
-      <div className="subhead">
-        <AlertTriangle size={17} />
-        <span>Bias and limitation checks</span>
+    <section className="space-y-3">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <AlertTriangle className="size-4 text-amber-700" />
+        Bias and limitation checks
       </div>
-      {sorted.map((risk) => (
-        <article key={`${risk.category}-${risk.title}`} className={`risk-card ${risk.level.toLowerCase()}`}>
-          <div className="risk-card-head">
-            <strong>{risk.title}</strong>
-            <span>{risk.level}</span>
-          </div>
-          <p>{risk.explanation}</p>
-          <dl>
-            <dt>Evidence</dt>
-            <dd>{risk.evidence}</dd>
-            <dt>Why it matters</dt>
-            <dd>{risk.whyItMatters}</dd>
-            <dt>Mitigation</dt>
-            <dd>{risk.recommendedMitigation}</dd>
-            {risk.relatedWorkflowStep && (
-              <>
-                <dt>Workflow step</dt>
-                <dd>{risk.relatedWorkflowStep}</dd>
-              </>
-            )}
-          </dl>
-        </article>
-      ))}
+      <div className="space-y-3">
+        {sorted.map((risk) => (
+          <RiskCard key={`${risk.category}-${risk.title}`} risk={risk} />
+        ))}
+      </div>
     </section>
+  )
+}
+
+function RiskCard({ risk }: { risk: Risk }) {
+  return (
+    <article className={`rounded-lg border p-4 ${riskToneClass(risk.level)}`}>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-sm font-semibold leading-5">{risk.title}</h3>
+        <Badge variant={riskBadgeVariant(risk.level)}>{risk.level}</Badge>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{risk.explanation}</p>
+      <dl className="mt-3 space-y-2 text-sm">
+        <RiskDetail title="Evidence" body={risk.evidence} />
+        <RiskDetail title="Why it matters" body={risk.whyItMatters} />
+        <RiskDetail title="Mitigation" body={risk.recommendedMitigation} />
+        {risk.relatedWorkflowStep && <RiskDetail title="Workflow step" body={risk.relatedWorkflowStep} />}
+      </dl>
+    </article>
   )
 }
 
@@ -661,69 +744,53 @@ function WorkflowPanel({
   }[activeTab]
 
   return (
-    <section className="workflow-box" id="exports">
-      <div className="subhead">
-        <Code2 size={17} />
-        <span>Generated workflow</span>
+    <section id="exports" className="space-y-4">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <Code2 className="size-4 text-primary" />
+        Generated workflow
       </div>
       <FilterSummary query={query} recommendedFilters={triage.recommendedFilters} />
-      <div className="query-links">
-        <a href={query.gbifSearchUrl} target="_blank" rel="noreferrer">
-          GBIF.org search <ExternalLink size={13} />
-        </a>
-        <a href={query.apiSearchUrl} target="_blank" rel="noreferrer">
-          API preview <ExternalLink size={13} />
-        </a>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" asChild>
+          <a href={query.gbifSearchUrl} target="_blank" rel="noreferrer">
+            GBIF.org search <ExternalLink />
+          </a>
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <a href={query.apiSearchUrl} target="_blank" rel="noreferrer">
+            API preview <ExternalLink />
+          </a>
+        </Button>
       </div>
-      <div className="tab-row" role="tablist" aria-label="Workflow output tabs">
-        <TabButton active={activeTab === 'r'} onClick={() => setActiveTab('r')}>
-          R
-        </TabButton>
-        <TabButton active={activeTab === 'python'} onClick={() => setActiveTab('python')}>
-          Python
-        </TabButton>
-        <TabButton active={activeTab === 'sql'} onClick={() => setActiveTab('sql')}>
-          SQL
-        </TabButton>
-        <TabButton active={activeTab === 'predicate'} onClick={() => setActiveTab('predicate')}>
-          Predicate
-        </TabButton>
-        <TabButton active={activeTab === 'cleaning'} onClick={() => setActiveTab('cleaning')}>
-          Cleaning
-        </TabButton>
-        <TabButton active={activeTab === 'methods'} onClick={() => setActiveTab('methods')}>
-          Methods
-        </TabButton>
-        <TabButton active={activeTab === 'citation'} onClick={() => setActiveTab('citation')}>
-          Citation
-        </TabButton>
-        <TabButton active={activeTab === 'limitations'} onClick={() => setActiveTab('limitations')}>
-          Limitations
-        </TabButton>
-      </div>
-      <pre className="code-block">
-        <code>{tabContent}</code>
-      </pre>
-      <div className="export-grid">
-        <ExportButton icon={<FileText size={16} />} label="Markdown" filename="studyscout-plan.md" content={workflow.markdownReport} />
-        <ExportButton icon={<FileJson size={16} />} label="JSON" filename="studyscout-plan.json" content={workflow.jsonPlan} type="application/json" />
-        <ExportButton icon={<Braces size={16} />} label="HTML" filename="studyscout-report.html" content={workflow.htmlReport} type="text/html" />
-        <ExportButton icon={<FileText size={16} />} label="Quarto" filename="studyscout-workflow.qmd" content={createQuartoNotebook(workflow)} />
-        <ExportButton icon={<Database size={16} />} label="SQL" filename="gbif-occurrence-cube.sql" content={workflow.sqlCode} />
-        <ExportButton
-          icon={<FileJson size={16} />}
-          label="Predicate"
-          filename="gbif-download-request.json"
-          content={workflow.downloadRequestJson}
-          type="application/json"
-        />
-        <ExportButton
-          icon={<FileJson size={16} />}
-          label="Jupyter"
-          filename="studyscout-workflow.ipynb"
-          content={createJupyterNotebook(workflow)}
-          type="application/json"
-        />
+
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WorkflowTab)}>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+          <TabsTrigger value="r">R</TabsTrigger>
+          <TabsTrigger value="python">Python</TabsTrigger>
+          <TabsTrigger value="sql">SQL</TabsTrigger>
+          <TabsTrigger value="predicate">Predicate</TabsTrigger>
+          <TabsTrigger value="cleaning">Cleaning</TabsTrigger>
+          <TabsTrigger value="methods">Methods</TabsTrigger>
+          <TabsTrigger value="citation">Citation</TabsTrigger>
+          <TabsTrigger value="limitations">Limits</TabsTrigger>
+        </TabsList>
+        <TabsContent value={activeTab}>
+          <ScrollArea className="h-[360px] rounded-lg border bg-[#10241d]">
+            <pre className="p-4 font-mono text-xs leading-6 text-emerald-50">
+              <code>{tabContent}</code>
+            </pre>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <ExportButton icon={<FileText />} label="Markdown" filename="studyscout-plan.md" content={workflow.markdownReport} />
+        <ExportButton icon={<FileJson />} label="JSON" filename="studyscout-plan.json" content={workflow.jsonPlan} type="application/json" />
+        <ExportButton icon={<Braces />} label="HTML" filename="studyscout-report.html" content={workflow.htmlReport} type="text/html" />
+        <ExportButton icon={<FileText />} label="Quarto" filename="studyscout-workflow.qmd" content={createQuartoNotebook(workflow)} />
+        <ExportButton icon={<Database />} label="SQL" filename="gbif-occurrence-cube.sql" content={workflow.sqlCode} />
+        <ExportButton icon={<FileJson />} label="Predicate" filename="gbif-download-request.json" content={workflow.downloadRequestJson} type="application/json" />
+        <ExportButton icon={<FileJson />} label="Jupyter" filename="studyscout-workflow.ipynb" content={createJupyterNotebook(workflow)} type="application/json" />
         <ZipButton workflow={workflow} />
       </div>
     </section>
@@ -733,77 +800,382 @@ function WorkflowPanel({
 function FilterSummary({ query, recommendedFilters }: { query: GbifQuery; recommendedFilters: string[] }) {
   const apiFilters = Object.entries(query.apiParams)
   return (
-    <section className="filter-summary" aria-label="GBIF filters">
-      <strong>GBIF filters</strong>
-      <div>
-        {apiFilters.map(([key, value]) => (
-          <span key={key}>
-            {formatFilterName(key)}: {formatFilterValue(value)}
-          </span>
-        ))}
-      </div>
-      {recommendedFilters.length > 0 && (
-        <>
-          <strong>Recommended filters</strong>
-          <ul>
-            {recommendedFilters.map((filter) => (
-              <li key={filter}>{filter}</li>
+    <Card className="bg-muted/35">
+      <CardContent className="space-y-3 p-4">
+        <div>
+          <strong className="text-sm">GBIF filters</strong>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {apiFilters.map(([key, value]) => (
+              <Badge key={key} variant="secondary">
+                {formatFilterName(key)}: {formatFilterValue(value)}
+              </Badge>
             ))}
-          </ul>
-        </>
+          </div>
+        </div>
+        {recommendedFilters.length > 0 && (
+          <div>
+            <strong className="text-sm">Recommended filters</strong>
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-sm leading-6 text-muted-foreground">
+              {recommendedFilters.map((filter) => (
+                <li key={filter}>{filter}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function MethodSection() {
+  return (
+    <Card id="method" className="2xl:col-span-2">
+      <CardContent className="grid gap-4 p-5 md:grid-cols-[minmax(0,1fr)_minmax(240px,420px)]">
+        <div>
+          <h2 className="text-lg font-semibold">Scientific guardrail</h2>
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
+            StudyScout does not certify data as valid. It summarizes GBIF-mediated data availability and common data-use risks for a proposed research question. Final suitability depends on method choice, taxon expertise, scale, and additional data sources.
+          </p>
+        </div>
+        <div className="grid gap-2 text-sm">
+          <Badge variant="outline" className="justify-start py-1.5">
+            OpenAI structured outputs
+          </Badge>
+          <Badge variant="outline" className="justify-start py-1.5">
+            Official GBIF identifiers
+          </Badge>
+          <Badge variant="outline" className="justify-start py-1.5">
+            DOI-backed download guidance
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function StatusCard({ status, preview, topRisk }: { status: Status; preview: DataPreview | null; topRisk?: Risk }) {
+  return (
+    <Card className="self-end">
+      <CardContent className="flex items-start gap-3 p-4">
+        <span className={`mt-1 size-2.5 shrink-0 rounded-full ${statusDotClass(status)}`} />
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{statusText(status, preview, topRisk)}</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {status === 'ready' && preview ? `${formatNumber(preview.counts.total)} matching records in the current preview.` : 'Live GBIF previews are generated only after analysis runs.'}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function SectionTitle({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-primary [&_svg]:size-4">{icon}</span>
+      <div className="min-w-0">
+        <CardTitle className="text-base">{title}</CardTitle>
+        <CardDescription className="mt-1 leading-5">{description}</CardDescription>
+      </div>
+    </div>
+  )
+}
+
+function TextField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  inputMode,
+}: {
+  id: string
+  label: string
+  value: string | number
+  onChange: (value: string) => void
+  placeholder?: string
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} value={value} inputMode={inputMode} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+    </div>
+  )
+}
+
+function SelectField({
+  label,
+  value,
+  onValueChange,
+  options,
+}: {
+  label: string
+  value: string
+  onValueChange: (value: string) => void
+  options: { value: string; label: string }[]
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      <strong className="mt-1 block text-2xl font-semibold tracking-normal">{value}</strong>
+    </div>
+  )
+}
+
+function Readiness({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border bg-card p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-sm font-medium">{label}</span>
+        <span className="font-mono text-sm text-muted-foreground">{value}</span>
+      </div>
+      <Progress value={value} />
+    </div>
+  )
+}
+
+function SupportGroup({ title, items, tone }: { title: string; items: string[]; tone: 'good' | 'caution' | 'danger' }) {
+  if (!items.length) return null
+  return (
+    <div className={`rounded-lg border p-3 ${supportToneClass(tone)}`}>
+      <strong className="text-sm">{title}</strong>
+      <ul className="mt-2 list-disc space-y-1 pl-4 text-sm leading-6">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function RiskDetail({ title, body }: { title: string; body: string }) {
+  return (
+    <div>
+      <dt className="font-medium text-foreground">{title}</dt>
+      <dd className="mt-0.5 leading-6 text-muted-foreground">{body}</dd>
+    </div>
+  )
+}
+
+function SpatialCoveragePreview({ preview }: { preview: DataPreview }) {
+  const summary = useMemo(() => summarizeSpatialPreview(preview), [preview])
+
+  if (!summary) {
+    return <EmptyState title="No sample points returned" body="GBIF counts completed, but the sample-record request did not return plottable coordinates." />
+  }
+
+  return (
+    <section className="rounded-lg border bg-card p-4" aria-label="Spatial coverage preview">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Map className="size-4 text-primary" />
+            Spatial coverage check
+          </div>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+            {summary.interpretation} The plot uses the live preview sample, not the full download.
+          </p>
+        </div>
+        <Badge variant={summary.isConcentrated ? 'warning' : 'success'}>{summary.isConcentrated ? 'Concentrated sample' : 'Broad sample'}</Badge>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="rounded-lg border bg-muted/35 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span>{formatCoordinate(summary.extent.maxLat, 'lat')}</span>
+            <span>Zoomed to sample extent</span>
+          </div>
+          <svg className="block aspect-[16/9] w-full" viewBox="0 0 100 56" role="img" aria-label={`${summary.points.length} sampled occurrence points plotted in their local extent`}>
+            <rect x="0" y="0" width="100" height="56" rx="3" className="fill-background" />
+            {[20, 40, 60, 80].map((x) => (
+              <line key={`zoom-x-${x}`} x1={x} x2={x} y1="0" y2="56" className="stroke-border" strokeWidth="0.22" />
+            ))}
+            {[14, 28, 42].map((y) => (
+              <line key={`zoom-y-${y}`} y1={y} y2={y} x1="0" x2="100" className="stroke-border" strokeWidth="0.22" />
+            ))}
+            {summary.zoomedPoints.map((point, index) => (
+              <circle
+                key={`${point.x}-${point.y}-${index}`}
+                cx={point.x}
+                cy={point.y}
+                r={point.hasHighUncertainty ? 1.8 : 1.35}
+                className={point.hasHighUncertainty ? 'fill-amber-600 opacity-75' : 'fill-primary opacity-75'}
+              />
+            ))}
+          </svg>
+          <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span>{formatCoordinate(summary.extent.minLon, 'lon')}</span>
+            <span>{formatCoordinate(summary.extent.maxLon, 'lon')}</span>
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">{formatCoordinate(summary.extent.minLat, 'lat')}</div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="rounded-lg border bg-muted/35 p-3">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Global locator</div>
+            <svg className="block aspect-[100/52] w-full" viewBox="0 0 100 52" role="img" aria-label="Sample extent shown on a global coordinate grid">
+              <rect x="0" y="0" width="100" height="52" rx="3" className="fill-background" />
+              {[20, 40, 60, 80].map((x) => (
+                <line key={`global-x-${x}`} x1={x} x2={x} y1="0" y2="52" className="stroke-border" strokeWidth="0.22" />
+              ))}
+              {[13, 26, 39].map((y) => (
+                <line key={`global-y-${y}`} y1={y} y2={y} x1="0" x2="100" className="stroke-border" strokeWidth="0.22" />
+              ))}
+              <rect
+                x={summary.globalBox.x}
+                y={summary.globalBox.y}
+                width={summary.globalBox.width}
+                height={summary.globalBox.height}
+                rx="1"
+                className="fill-primary/20 stroke-primary"
+                strokeWidth="0.6"
+              />
+            </svg>
+          </div>
+          <div className="grid gap-2 text-sm">
+            <SpatialStat label="Sampled points" value={formatNumber(summary.points.length)} />
+            <SpatialStat label="Countries in sample" value={summary.countryLabels.length ? String(summary.countryLabels.length) : 'Not reported'} />
+            <SpatialStat label="Latitude range" value={`${formatCoordinate(summary.extent.minLat, 'lat')} to ${formatCoordinate(summary.extent.maxLat, 'lat')}`} />
+            <SpatialStat label="Longitude range" value={`${formatCoordinate(summary.extent.minLon, 'lon')} to ${formatCoordinate(summary.extent.maxLon, 'lon')}`} />
+          </div>
+        </div>
+      </div>
+
+      {summary.countryLabels.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {summary.countryLabels.slice(0, 8).map((country) => (
+            <Badge key={country} variant="secondary">
+              {country}
+            </Badge>
+          ))}
+        </div>
       )}
     </section>
   )
 }
 
-function MapPreview({ points }: { points: { lat: number; lon: number }[] }) {
-  const projected = useMemo(
-    () =>
-      points.slice(0, 220).map((point) => ({
-        x: ((point.lon + 180) / 360) * 100,
-        y: ((90 - point.lat) / 180) * 100,
-      })),
-    [points],
-  )
-
+function SpatialStat({ label, value }: { label: string; value: string }) {
   return (
-    <figure className="map-preview" aria-label="Sample occurrence map preview">
-      <figcaption>
-        <Map size={16} />
-        Sample georeferenced records
-      </figcaption>
-      <svg viewBox="0 0 100 52" role="img" aria-label={`${projected.length} sampled occurrence points plotted on a world grid`}>
-        <rect x="0" y="0" width="100" height="52" rx="4" />
-        {[20, 40, 60, 80].map((x) => (
-          <line key={`x-${x}`} x1={x} x2={x} y1="0" y2="52" />
-        ))}
-        {[13, 26, 39].map((y) => (
-          <line key={`y-${y}`} y1={y} y2={y} x1="0" x2="100" />
-        ))}
-        {projected.map((point, index) => (
-          <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="0.8" />
-        ))}
-      </svg>
-    </figure>
+    <div className="flex items-start justify-between gap-3 rounded-md border bg-background px-3 py-2">
+      <span className="text-muted-foreground">{label}</span>
+      <strong className="text-right font-mono text-xs leading-5">{value}</strong>
+    </div>
   )
+}
+
+function summarizeSpatialPreview(preview: DataPreview) {
+  const points = preview.samplePoints.filter(hasValidPoint).slice(0, 220)
+  if (!points.length) return null
+
+  const lats = points.map((point) => point.lat)
+  const lons = points.map((point) => point.lon)
+  const extent = {
+    minLat: Math.min(...lats),
+    maxLat: Math.max(...lats),
+    minLon: Math.min(...lons),
+    maxLon: Math.max(...lons),
+  }
+  const latSpan = Math.max(0.01, extent.maxLat - extent.minLat)
+  const lonSpan = Math.max(0.01, extent.maxLon - extent.minLon)
+  const countryLabels = [...new Set(points.map((point) => point.country).filter((country): country is string => Boolean(country)))]
+    .sort()
+    .map((country) => countryLabel(country))
+  const topCountry = preview.facets.countries[0]
+  const topCountryText =
+    topCountry && preview.counts.total
+      ? `${countryLabel(topCountry.name)} accounts for ${new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(topCountry.count / preview.counts.total)} of matching records`
+      : 'No country facet dominated the preview response'
+  const isConcentrated = (latSpan < 5 && lonSpan < 5) || (countryLabels.length <= 1 && points.length >= 10)
+
+  return {
+    points,
+    extent,
+    countryLabels,
+    isConcentrated,
+    interpretation: isConcentrated
+      ? `Preview points are clustered across about ${formatDegrees(latSpan)} latitude by ${formatDegrees(lonSpan)} longitude. ${topCountryText}.`
+      : `Preview points cover about ${formatDegrees(latSpan)} latitude by ${formatDegrees(lonSpan)} longitude. ${topCountryText}.`,
+    zoomedPoints: points.map((point) => ({
+      x: 6 + ((point.lon - extent.minLon) / lonSpan) * 88,
+      y: 6 + ((extent.maxLat - point.lat) / latSpan) * 44,
+      hasHighUncertainty: (point.coordinateUncertaintyInMeters ?? 0) > 10000,
+    })),
+    globalBox: createGlobalExtentBox(extent),
+  }
+}
+
+function hasValidPoint(point: OccurrencePoint) {
+  return Number.isFinite(point.lat) && Number.isFinite(point.lon) && point.lat >= -90 && point.lat <= 90 && point.lon >= -180 && point.lon <= 180
+}
+
+function createGlobalExtentBox(extent: { minLat: number; maxLat: number; minLon: number; maxLon: number }) {
+  const minX = ((extent.minLon + 180) / 360) * 100
+  const maxX = ((extent.maxLon + 180) / 360) * 100
+  const minY = ((90 - extent.maxLat) / 180) * 52
+  const maxY = ((90 - extent.minLat) / 180) * 52
+  const rawWidth = Math.max(0.1, maxX - minX)
+  const rawHeight = Math.max(0.1, maxY - minY)
+  const width = Math.max(1.8, rawWidth)
+  const height = Math.max(1.8, rawHeight)
+  return {
+    x: clamp(minX - (width - rawWidth) / 2, 0, 100 - width),
+    y: clamp(minY - (height - rawHeight) / 2, 0, 52 - height),
+    width,
+    height,
+  }
+}
+
+function formatCoordinate(value: number, axis: 'lat' | 'lon') {
+  const direction = axis === 'lat' ? (value >= 0 ? 'N' : 'S') : value >= 0 ? 'E' : 'W'
+  return `${Math.abs(value).toFixed(Math.abs(value) >= 10 ? 1 : 2)}° ${direction}`
+}
+
+function formatDegrees(value: number) {
+  return `${value.toFixed(value >= 10 ? 1 : 2)}°`
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
 }
 
 function Histogram({ title, buckets }: { title: string; buckets: CountBucket[] }) {
   const visible = buckets.slice(-28)
   const max = Math.max(1, ...visible.map((bucket) => bucket.count))
   return (
-    <section className="mini-chart">
-      <h3>{title}</h3>
-      <div className="histogram">
+    <section className="rounded-lg border bg-card p-4">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <div className="mt-3 flex h-36 items-end gap-1 border-b pb-2">
         {visible.map((bucket) => (
           <span
             key={bucket.name}
+            className="min-w-0 flex-1 rounded-t bg-primary"
             title={`${bucket.name}: ${formatNumber(bucket.count)}`}
             style={{ height: `${Math.max(5, (bucket.count / max) * 100)}%` }}
           />
         ))}
       </div>
-      <small>
+      <small className="mt-2 block text-xs text-muted-foreground">
         {visible[0]?.name ?? 'n/a'} {visible.length > 1 ? `to ${visible.at(-1)?.name}` : ''}
       </small>
     </section>
@@ -821,59 +1193,45 @@ function BarList({
 }) {
   const max = Math.max(1, ...buckets.map((bucket) => bucket.count))
   return (
-    <section className="mini-chart">
-      <h3>{title}</h3>
-      <div className="bar-list">
+    <section className="rounded-lg border bg-card p-4">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <div className="mt-3 space-y-2">
         {buckets.length ? (
           buckets.map((bucket) => (
-            <div key={bucket.name} className="bar-row">
-              <span>{formatter(bucket.name)}</span>
-              <div>
-                <i style={{ width: `${Math.max(4, (bucket.count / max) * 100)}%` }} />
+            <div key={bucket.name} className="grid grid-cols-[minmax(76px,1.2fr)_minmax(70px,1fr)_auto] items-center gap-2 text-xs">
+              <span className="truncate text-muted-foreground">{formatter(bucket.name)}</span>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <i className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(4, (bucket.count / max) * 100)}%` }} />
               </div>
-              <em>{formatNumber(bucket.count)}</em>
+              <em className="font-mono not-italic text-muted-foreground">{formatNumber(bucket.count)}</em>
             </div>
           ))
         ) : (
-          <small>No facet values returned.</small>
+          <small className="text-xs text-muted-foreground">No facet values returned.</small>
         )}
       </div>
     </section>
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function InfoBox({ title, body, detail }: { title: string; body: string; detail: string }) {
   return (
-    <div className="metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  )
-}
-
-function Readiness({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="readiness">
-      <svg viewBox="0 0 40 40" aria-hidden="true">
-        <circle cx="20" cy="20" r="16" />
-        <circle cx="20" cy="20" r="16" style={{ strokeDasharray: `${value} 100` }} />
-      </svg>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  )
-}
-
-function SupportGroup({ title, items, tone }: { title: string; items: string[]; tone: 'good' | 'caution' | 'danger' }) {
-  if (!items.length) return null
-  return (
-    <div className={`support-group ${tone}`}>
+    <div className="rounded-lg border bg-accent/45 p-4 text-sm">
       <strong>{title}</strong>
-      <ul>
-        {items.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
+      <p className="mt-2 leading-6">{body}</p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">{detail}</p>
+    </div>
+  )
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="grid min-h-72 place-items-center rounded-lg border border-dashed p-8 text-center">
+      <div className="max-w-sm">
+        <Download className="mx-auto size-6 text-muted-foreground" />
+        <h3 className="mt-3 text-base font-semibold">{title}</h3>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
+      </div>
     </div>
   )
 }
@@ -892,18 +1250,20 @@ function ExportButton({
   type?: string
 }) {
   return (
-    <button type="button" onClick={() => downloadBlob(filename, new Blob([content], { type }))}>
+    <Button type="button" variant="outline" size="sm" onClick={() => downloadBlob(filename, new Blob([content], { type }))}>
       {icon}
       {label}
-    </button>
+    </Button>
   )
 }
 
 function ZipButton({ workflow }: { workflow: WorkflowPackage }) {
   const [loading, setLoading] = useState(false)
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="sm"
       onClick={async () => {
         setLoading(true)
         try {
@@ -914,53 +1274,14 @@ function ZipButton({ workflow }: { workflow: WorkflowPackage }) {
         }
       }}
     >
-      {loading ? <Loader2 className="spin" size={16} /> : <FileArchive size={16} />}
+      {loading ? <Loader2 className="animate-spin" /> : <FileArchive />}
       ZIP
-    </button>
-  )
-}
-
-function PanelHeader({ icon, title, subtitle }: { icon: ReactNode; title: string; subtitle: string }) {
-  return (
-    <div className="panel-header">
-      <div className="panel-icon">{icon}</div>
-      <div>
-        <h2>{title}</h2>
-        <p>{subtitle}</p>
-      </div>
-    </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-    </label>
-  )
-}
-
-function EmptyState({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="empty-state">
-      <Download size={22} />
-      <h3>{title}</h3>
-      <p>{body}</p>
-    </div>
-  )
-}
-
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button type="button" role="tab" aria-selected={active} className={active ? 'active' : ''} onClick={onClick}>
-      {children}
-    </button>
+    </Button>
   )
 }
 
 function parseYearRange(value: string) {
-  const match = value.match(/(18\d{2}|19\d{2}|20\d{2})\s*(?:-|–|—|to|through)?\s*(18\d{2}|19\d{2}|20\d{2})?/)
+  const match = value.match(/(18\d{2}|19\d{2}|20\d{2})\s*(?:-|to|through)?\s*(18\d{2}|19\d{2}|20\d{2})?/)
   if (!match) return null
   const start = Number(match[1])
   const end = match[2] ? Number(match[2]) : new Date().getFullYear()
@@ -1001,8 +1322,33 @@ function statusText(status: Status, preview: DataPreview | null, topRisk?: Risk)
   return 'Ready to analyze'
 }
 
+function statusDotClass(status: Status) {
+  if (status === 'ready') return 'bg-primary'
+  if (status === 'interpreting' || status === 'previewing') return 'bg-amber-500'
+  if (status === 'error') return 'bg-destructive'
+  return 'bg-muted-foreground'
+}
+
 function riskWeight(level: string) {
   return { BLOCKING: 5, HIGH: 4, MODERATE: 3, UNKNOWN: 2, LOW: 1 }[level as keyof Record<string, number>] ?? 0
+}
+
+function riskToneClass(level: Risk['level']) {
+  if (level === 'BLOCKING' || level === 'HIGH') return 'border-red-200 bg-red-50/70'
+  if (level === 'MODERATE' || level === 'UNKNOWN') return 'border-amber-200 bg-amber-50/70'
+  return 'border-emerald-200 bg-emerald-50/70'
+}
+
+function riskBadgeVariant(level: Risk['level']) {
+  if (level === 'BLOCKING' || level === 'HIGH') return 'destructive'
+  if (level === 'MODERATE' || level === 'UNKNOWN') return 'warning'
+  return 'success'
+}
+
+function supportToneClass(tone: 'good' | 'caution' | 'danger') {
+  if (tone === 'good') return 'border-emerald-200 bg-emerald-50 text-emerald-950'
+  if (tone === 'caution') return 'border-amber-200 bg-amber-50 text-amber-950'
+  return 'border-red-200 bg-red-50 text-red-950'
 }
 
 function downloadBlob(filename: string, blob: Blob) {

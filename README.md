@@ -38,6 +38,7 @@ npm run build
 
 - Natural-language parsing for taxon, region, years, and intended analysis.
 - Demo prompt starters that populate the question field without bypassing live analysis.
+- Researcher-focused shadcn/ui + Tailwind interface with accessible forms, cards, tabs, alerts, and export controls.
 - Parse-only scope interpretation before the heavier live GBIF preview.
 - OpenAI Responses API structured outputs for intent extraction, study triage, and workflow text.
 - Editable interpreted scope before and after preview, including spatial resolution and user skill level.
@@ -58,6 +59,7 @@ The browser preview does not create a GBIF download DOI. Serious research reuse 
 ```text
 apps/web/                 React + Vite StudyScout app with an Express API
 apps/web/server/          OpenAI, GBIF, and API route implementation
+apps/web/src/components/ui owned shadcn-style UI primitives
 apps/web/src/lib/         browser export and formatting helpers
 apps/web/src/lib/__tests__ focused utility tests
 docs/                     product, API, and guardrail documentation
