@@ -1,5 +1,5 @@
-import { ClipboardList, Loader2, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
-import { useMemo } from 'react'
+import { ClipboardList, Loader2, Search, Shuffle, SlidersHorizontal, Trash2, X } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { SectionTitle } from '@/components/layout/SectionTitle'
 import { SelectField } from '@/components/form/SelectField'
 import { TextField } from '@/components/form/TextField'
-import { DEMO_PROMPTS } from '@/constants/demoPrompts'
+import { pickRandomPrompts } from '@/constants/demoPrompts'
 import { ANALYSIS_OPTIONS, CODE_OPTIONS, SKILL_SELECT_OPTIONS, SPATIAL_SELECT_OPTIONS } from '@/constants/options'
 import type { AnalysisType, PreferredLanguage } from '@/lib/types'
 
@@ -66,6 +66,19 @@ export function QuestionCard({
     return 'Looks good. Click Analyze to fetch GBIF data.'
   }, [charCount])
 
+  const [prompts, setPrompts] = useState(() => pickRandomPrompts(3))
+  const reshufflePrompts = useCallback(() => {
+    setPrompts((current) => {
+      // Try up to 5 times to pick a set that differs from the current one,
+      // so the user always sees new options.
+      let next = pickRandomPrompts(3)
+      for (let attempt = 0; attempt < 5 && next[0]?.question === current[0]?.question; attempt++) {
+        next = pickRandomPrompts(3)
+      }
+      return next
+    })
+  }, [])
+
   return (
     <Card>
       <CardHeader>
@@ -114,8 +127,8 @@ export function QuestionCard({
               </Button>
             )}
           </div>
-          <div className="grid gap-2" aria-label="Example research prompts">
-            {DEMO_PROMPTS.map((prompt) => (
+          <div className="grid gap-2" aria-label="Example research prompts" aria-live="polite">
+            {prompts.map((prompt) => (
               <Button
                 key={prompt.question}
                 type="button"
@@ -135,6 +148,18 @@ export function QuestionCard({
               </Button>
             ))}
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={reshufflePrompts}
+            disabled={isBusy}
+            className="w-full justify-center text-xs"
+            aria-label="Show 3 different example prompts"
+          >
+            <Shuffle className="size-3.5" aria-hidden="true" />
+            Show 3 more examples
+          </Button>
         </div>
 
         {hasStaleResults && (
