@@ -1,13 +1,22 @@
+import { createLruTtlCache } from './lib/lruTtlCache.js'
+import {
+  createDownloadPredicate,
+  createGbifSearchUrl,
+  createOccurrenceApiUrl,
+  createSqlCubeQuery,
+} from './lib/gbifQueryBuilders.js'
+
 const GBIF_API = 'https://api.gbif.org/v1'
-const OCCURRENCE_API = `${GBIF_API}/occurrence/search`
-const OCCURRENCE_WEB = 'https://www.gbif.org/occurrence/search'
 const CACHE_TTL_MS = 1000 * 60 * 30
 const CACHE_MAX_ENTRIES = Number(process.env.GBIF_CACHE_MAX_ENTRIES || 500)
 const GBIF_TIMEOUT_MS = Number(process.env.GBIF_TIMEOUT_MS || 90000)
 
-// Tiny LRU+TTL cache. Map preserves insertion order, so the first key is the
-// least-recently-used entry. We re-insert on every hit to mark it as fresh.
-const cache = new Map()
+// Shared LRU+TTL cache for every GBIF HTTP call (taxon match, occurrence
+// search, sampling-event dataset search, dataset hydration, taxa hydration).
+const cache = createLruTtlCache({
+  ttlMs: CACHE_TTL_MS,
+  maxEntries: CACHE_MAX_ENTRIES,
+})
 
 export async function resolveTaxon(intent) {
   const sourceName = String(intent.taxonQuery || intent.taxonText || '').trim()
@@ -261,92 +270,6 @@ async function fetchSamplingEventSummary(countries) {
   }
 }
 
-function createOccurrenceApiUrl(params, extra = {}) {
-  const url = new URL(OCCURRENCE_API)
-  appendParams(url, params)
-  appendParams(url, extra)
-  return url
-}
-
-function createGbifSearchUrl(params) {
-  const url = new URL(OCCURRENCE_WEB)
-  if (params.taxonKey) url.searchParams.set('taxon_key', String(params.taxonKey))
-  if (params.hasCoordinate) url.searchParams.set('occurrence_status', 'present')
-  if (params.hasCoordinate) url.searchParams.set('has_coordinate', 'true')
-  if (params.hasGeospatialIssue === false) url.searchParams.set('has_geospatial_issue', 'false')
-  if (params.year) url.searchParams.set('year', String(params.year))
-  const countries = Array.isArray(params.country) ? params.country : params.country ? [String(params.country)] : []
-  countries.forEach((country) => url.searchParams.append('country', country))
-  return url
-}
-
-function createDownloadPredicate(params) {
-  const predicates = [
-    { type: 'equals', key: 'HAS_COORDINATE', value: 'true' },
-    { type: 'equals', key: 'HAS_GEOSPATIAL_ISSUE', value: 'false' },
-  ]
-
-  if (params.taxonKey) {
-    predicates.push({ type: 'equals', key: 'TAXON_KEY', value: String(params.taxonKey) })
-  }
-  if (params.year) {
-    const [start, end] = String(params.year).split(',')
-    if (start) predicates.push({ type: 'greaterThanOrEquals', key: 'YEAR', value: start })
-    if (end) predicates.push({ type: 'lessThanOrEquals', key: 'YEAR', value: end })
-  }
-  if (params.country) {
-    predicates.push({
-      type: 'in',
-      key: 'COUNTRY',
-      values: Array.isArray(params.country) ? params.country : [String(params.country)],
-    })
-  }
-
-  return { type: 'and', predicates }
-}
-
-function createSqlCubeQuery(params) {
-  const where = ['hasCoordinate = TRUE', 'hasGeospatialIssue = FALSE']
-  if (params.taxonKey) where.push(`taxonKey = ${Number(params.taxonKey)}`)
-  if (params.year) {
-    const [start, end] = String(params.year).split(',')
-    if (start) where.push(`year >= ${Number(start)}`)
-    if (end) where.push(`year <= ${Number(end)}`)
-  }
-  const countries = Array.isArray(params.country) ? params.country : params.country ? [String(params.country)] : []
-  if (countries.length) where.push(`countryCode IN (${countries.map((country) => `'${country.replace(/'/g, "''")}'`).join(', ')})`)
-
-  return `-- GBIF Workbench occurrence-cube starter query
--- Submit through the GBIF SQL download API or adapt in the GBIF.org SQL download UI.
--- This summarizes occurrence counts by species, year, and country.
--- Add grid-cell functions or environmental joins when your analysis requires spatial cubes.
-
-SELECT
-  speciesKey,
-  species,
-  year,
-  countryCode,
-  basisOfRecord,
-  COUNT(*) AS occurrenceCount,
-  MIN(coordinateUncertaintyInMeters) AS minCoordinateUncertaintyMeters
-FROM occurrence
-WHERE ${where.join('\n  AND ')}
-GROUP BY speciesKey, species, year, countryCode, basisOfRecord
-ORDER BY year, countryCode, species
-`
-}
-
-function appendParams(url, params) {
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') return
-    if (Array.isArray(value)) {
-      value.forEach((item) => url.searchParams.append(key, String(item)))
-      return
-    }
-    url.searchParams.set(key, String(value))
-  })
-}
-
 function normalizeFacets(facets) {
   const byField = new Map(facets.map((facet) => [String(facet.field || '').toUpperCase(), facet.counts || []]))
   return {
@@ -406,13 +329,7 @@ function summarizeCoordinateUncertainty(points) {
 async function fetchJson(input) {
   const url = typeof input === 'string' ? input : input.toString()
   const cached = cache.get(url)
-  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-    // Re-insert so this entry becomes the most-recently-used.
-    cache.delete(url)
-    cache.set(url, cached)
-    return cached.value
-  }
-  if (cached) cache.delete(url)
+  if (cached !== undefined) return cached
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), GBIF_TIMEOUT_MS)
@@ -420,8 +337,7 @@ async function fetchJson(input) {
     const response = await fetch(url, { signal: controller.signal })
     if (!response.ok) throw new Error(`GBIF request failed: ${response.status} ${response.statusText}`)
     const value = await response.json()
-    cache.set(url, { fetchedAt: Date.now(), value })
-    evictCacheIfNeeded()
+    cache.set(url, value)
     return value
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
@@ -431,14 +347,6 @@ async function fetchJson(input) {
     throw new Error(`GBIF request failed before response: ${url}: ${message}`)
   } finally {
     clearTimeout(timer)
-  }
-}
-
-function evictCacheIfNeeded() {
-  while (cache.size > CACHE_MAX_ENTRIES) {
-    const oldestKey = cache.keys().next().value
-    if (oldestKey === undefined) break
-    cache.delete(oldestKey)
   }
 }
 

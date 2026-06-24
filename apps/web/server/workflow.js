@@ -18,7 +18,7 @@ export function createHealthResponse() {
   }
 }
 
-export function validateParseIntentBody(body) {
+function validateRequestBody(body) {
   const question = String(body?.question || '').trim()
   if (!question) {
     return { ok: false, error: 'A research question is required.' }
@@ -28,15 +28,8 @@ export function validateParseIntentBody(body) {
   return { ok: true, value: { question, overrides } }
 }
 
-export function validateStudyPlanBody(body) {
-  const question = String(body?.question || '').trim()
-  if (!question) {
-    return { ok: false, error: 'A research question is required.' }
-  }
-  const overrides =
-    body?.overrides && typeof body.overrides === 'object' ? body.overrides : {}
-  return { ok: true, value: { question, overrides } }
-}
+export const validateParseIntentBody = validateRequestBody
+export const validateStudyPlanBody = validateRequestBody
 
 export function seedIntentFromOverrides(overrides) {
   // Build a minimal intent shape that resolveTaxon() can consume before the
@@ -75,16 +68,7 @@ export function seedIntentFromOverrides(overrides) {
   }
 }
 
-export function finalizeWorkflow(workflow, payload) {
-  return {
-    ...workflow,
-    sqlCode: payload.query.sqlCubeQuery,
-    downloadRequestJson: createDownloadRequestJson(payload.query.downloadPredicate),
-    jsonPlan: JSON.stringify(payload, null, 2),
-  }
-}
-
-export function createDownloadRequestJson(predicate) {
+function createDownloadRequestJson(predicate) {
   return JSON.stringify(
     {
       notificationAddresses: ['userEmail@example.org'],
@@ -95,6 +79,30 @@ export function createDownloadRequestJson(predicate) {
     null,
     2,
   )
+}
+
+function normalizeSupportHeadline(value) {
+  const headline = String(value || '').trim()
+  return headline
+    .replace(/^(yes|no)\s*[—–-]\s*/i, '')
+    .replace(/^(yes|no),?\s+/i, '')
+}
+
+function normalizeReadiness(value) {
+  const score = Number(value)
+  if (!Number.isFinite(score)) return 0
+  if (score > 0 && score <= 5) return Math.round(score * 20)
+  if (score > 5 && score <= 10) return Math.round(score * 10)
+  return Math.max(0, Math.min(100, Math.round(score)))
+}
+
+export function finalizeWorkflow(workflow, payload) {
+  return {
+    ...workflow,
+    sqlCode: payload.query.sqlCubeQuery,
+    downloadRequestJson: createDownloadRequestJson(payload.query.downloadPredicate),
+    jsonPlan: JSON.stringify(payload, null, 2),
+  }
 }
 
 export function normalizeTriage(triage) {
@@ -111,19 +119,4 @@ export function normalizeTriage(triage) {
       dataType: normalizeReadiness(triage.readiness?.dataType),
     },
   }
-}
-
-export function normalizeSupportHeadline(value) {
-  const headline = String(value || '').trim()
-  return headline
-    .replace(/^(yes|no)\s*[—–-]\s*/i, '')
-    .replace(/^(yes|no),?\s+/i, '')
-}
-
-export function normalizeReadiness(value) {
-  const score = Number(value)
-  if (!Number.isFinite(score)) return 0
-  if (score > 0 && score <= 5) return Math.round(score * 20)
-  if (score > 5 && score <= 10) return Math.round(score * 10)
-  return Math.max(0, Math.min(100, Math.round(score)))
 }

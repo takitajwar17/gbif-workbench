@@ -1,4 +1,7 @@
 import crypto from 'node:crypto'
+import { createLruTtlCache } from './lib/lruTtlCache.js'
+import { intentSchema, assessmentSchema } from './lib/openaiSchemas.js'
+import { intentInstructions, assessmentInstructions } from './lib/openaiPrompts.js'
 
 const OPENAI_API_BASE = 'https://api.openai.com/v1'
 const DEFAULT_MODEL = 'gpt-5.4-mini'
@@ -7,7 +10,10 @@ const ASSESSMENT_CACHE_MAX_ENTRIES = Number(process.env.OPENAI_ASSESSMENT_CACHE_
 const ASSESSMENT_CACHE_ENABLED = process.env.OPENAI_ASSESSMENT_CACHE !== 'false'
 
 let fallbackModelPromise = null
-const assessmentCache = new Map()
+const assessmentCache = createLruTtlCache({
+  ttlMs: ASSESSMENT_CACHE_TTL_MS,
+  maxEntries: ASSESSMENT_CACHE_MAX_ENTRIES,
+})
 
 export async function interpretStudyIntent({ question, overrides }) {
   const model = process.env.OPENAI_MODEL_INTENT || process.env.OPENAI_MODEL || DEFAULT_MODEL
@@ -45,7 +51,7 @@ export async function assessStudy({ intent, taxon, query, preview }) {
   const effort = process.env.OPENAI_REASONING_EFFORT_ASSESSMENT || 'low'
   const cacheKey = ASSESSMENT_CACHE_ENABLED ? buildAssessmentCacheKey({ model, effort, intent, taxon, query, preview }) : null
   if (cacheKey) {
-    const cached = readAssessmentCache(cacheKey)
+    const cached = assessmentCache.get(cacheKey)
     if (cached) return cached
   }
 
@@ -84,7 +90,7 @@ export async function assessStudy({ intent, taxon, query, preview }) {
     ],
   })
 
-  if (cacheKey) writeAssessmentCache(cacheKey, result)
+  if (cacheKey) assessmentCache.set(cacheKey, result)
   return result
 }
 
@@ -272,225 +278,3 @@ function stableStringify(value) {
   const keys = Object.keys(value).sort()
   return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`
 }
-
-function readAssessmentCache(key) {
-  const entry = assessmentCache.get(key)
-  if (!entry) return null
-  if (Date.now() - entry.fetchedAt >= ASSESSMENT_CACHE_TTL_MS) {
-    assessmentCache.delete(key)
-    return null
-  }
-  // Re-insert so this becomes the most-recently-used entry.
-  assessmentCache.delete(key)
-  assessmentCache.set(key, entry)
-  return entry.value
-}
-
-function writeAssessmentCache(key, value) {
-  assessmentCache.set(key, { fetchedAt: Date.now(), value })
-  while (assessmentCache.size > ASSESSMENT_CACHE_MAX_ENTRIES) {
-    const oldest = assessmentCache.keys().next().value
-    if (oldest === undefined) break
-    assessmentCache.delete(oldest)
-  }
-}
-
-const analysisTypes = [
-  'distribution_mapping',
-  'species_distribution_modelling',
-  'range_shift_exploration',
-  'temporal_trend_or_abundance',
-  'invasive_monitoring_preview',
-  'unknown',
-]
-
-const preferredLanguages = ['R', 'Python', 'Both']
-const riskLevels = ['LOW', 'MODERATE', 'HIGH', 'BLOCKING', 'UNKNOWN']
-const riskCategories = ['spatial', 'temporal', 'taxonomic', 'source', 'data_type', 'citation', 'other']
-
-const intentSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: [
-    'question',
-    'taxonText',
-    'taxonQuery',
-    'taxonomicRank',
-    'regionText',
-    'countries',
-    'startYear',
-    'endYear',
-    'analysisType',
-    'claimType',
-    'requiredData',
-    'possibleRequiredExtraData',
-    'spatialResolution',
-    'skillLevel',
-    'preferredLanguage',
-    'confidence',
-    'ambiguities',
-  ],
-  properties: {
-    question: { type: 'string' },
-    taxonText: { type: 'string' },
-    taxonQuery: { type: 'string' },
-    taxonomicRank: { type: 'string' },
-    regionText: { type: 'string' },
-    countries: { type: 'array', items: { type: 'string' } },
-    startYear: { type: ['integer', 'null'] },
-    endYear: { type: ['integer', 'null'] },
-    analysisType: { type: 'string', enum: analysisTypes },
-    claimType: { type: 'string' },
-    requiredData: { type: 'array', items: { type: 'string' } },
-    possibleRequiredExtraData: { type: 'array', items: { type: 'string' } },
-    spatialResolution: { type: 'string' },
-    skillLevel: { type: 'string' },
-    preferredLanguage: { type: 'string', enum: preferredLanguages },
-    confidence: { type: 'number', minimum: 0, maximum: 1 },
-    ambiguities: { type: 'array', items: { type: 'string' } },
-  },
-}
-
-const riskSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: [
-    'category',
-    'level',
-    'title',
-    'explanation',
-    'evidence',
-    'whyItMatters',
-    'recommendedMitigation',
-    'relatedWorkflowStep',
-  ],
-  properties: {
-    category: { type: 'string', enum: riskCategories },
-    level: { type: 'string', enum: riskLevels },
-    title: { type: 'string' },
-    explanation: { type: 'string' },
-    evidence: { type: 'string' },
-    whyItMatters: { type: 'string' },
-    recommendedMitigation: { type: 'string' },
-    relatedWorkflowStep: { type: ['string', 'null'] },
-  },
-}
-
-const assessmentSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['triage', 'workflow'],
-  properties: {
-    triage: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['support', 'risks', 'readiness', 'recommendedFilters', 'unsupportedClaims', 'nextSteps'],
-      properties: {
-        support: {
-          type: 'object',
-          additionalProperties: false,
-          required: [
-            'headline',
-            'stronglySupported',
-            'conditionallySupported',
-            'exploratoryOnly',
-            'notSupportedWithOccurrenceOnly',
-            'insufficientData',
-          ],
-          properties: {
-            headline: { type: 'string' },
-            stronglySupported: { type: 'array', items: { type: 'string' } },
-            conditionallySupported: { type: 'array', items: { type: 'string' } },
-            exploratoryOnly: { type: 'array', items: { type: 'string' } },
-            notSupportedWithOccurrenceOnly: { type: 'array', items: { type: 'string' } },
-            insufficientData: { type: 'array', items: { type: 'string' } },
-          },
-        },
-        risks: { type: 'array', minItems: 3, items: riskSchema },
-        readiness: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['spatial', 'temporal', 'taxonomic', 'dataType'],
-          properties: {
-            spatial: { type: 'integer', minimum: 0, maximum: 100 },
-            temporal: { type: 'integer', minimum: 0, maximum: 100 },
-            taxonomic: { type: 'integer', minimum: 0, maximum: 100 },
-            dataType: { type: 'integer', minimum: 0, maximum: 100 },
-          },
-        },
-        recommendedFilters: { type: 'array', items: { type: 'string' } },
-        unsupportedClaims: { type: 'array', items: { type: 'string' } },
-        nextSteps: { type: 'array', items: { type: 'string' } },
-      },
-    },
-    workflow: {
-      type: 'object',
-      additionalProperties: false,
-      required: [
-        'rCode',
-        'pythonCode',
-        'cleaningR',
-        'methodsText',
-        'limitationsText',
-        'citationInstructions',
-        'markdownReport',
-        'htmlReport',
-      ],
-      properties: {
-        rCode: { type: 'string' },
-        pythonCode: { type: 'string' },
-        cleaningR: { type: 'string' },
-        methodsText: { type: 'string' },
-        limitationsText: { type: 'string' },
-        citationInstructions: { type: 'string' },
-        markdownReport: { type: 'string' },
-        htmlReport: { type: 'string' },
-      },
-    },
-  },
-}
-
-const intentInstructions = `
-You turn a biodiversity research question into a precise GBIF study scope.
-
-Return only JSON that matches the schema. Use the user's overrides as authoritative when present, but normalize them into useful GBIF terms.
-
-Rules:
-- Choose taxonQuery as the best scientific name, canonical taxon name, or higher taxon name to send to the GBIF Backbone. Do not use a casual common name if a better scientific query is clear.
-- taxonText is the human-readable taxon phrase the user expects to see.
-- taxonomicRank should be a GBIF-style rank when inferable, such as SPECIES, GENUS, FAMILY, ORDER, CLASS, PHYLUM, or UNKNOWN.
-- Resolve regions to ISO 3166-1 alpha-2 country codes only when there is a defensible country-level interpretation. If the region is broad or ambiguous, include the best standard country list and explain ambiguity.
-- If a country boundary or region definition is uncertain, put that uncertainty in ambiguities instead of hiding it.
-- Infer analysisType from the research question. Use temporal_trend_or_abundance only when the user asks about decline, population trend, abundance, monitoring, or change in amount.
-- Use null for missing years. If only one year is clearly provided and the wording implies "since", use it as startYear and leave endYear null.
-- requiredData and possibleRequiredExtraData must name scientific data types, not UI features.
-- preferredLanguage should preserve an override if present; otherwise return Both.
-- confidence is your confidence in the interpretation, not in GBIF data suitability.
-`
-
-const assessmentInstructions = `
-You are GBIF Workbench, a cautious biodiversity-data research planning assistant.
-
-Return only JSON that matches the schema. Ground every record-count, country, dataset, and temporal-coverage statement in the provided GBIF preview. Do not invent data.
-
-Scientific stance:
-- Separate data availability from data suitability and claim strength.
-- Never say that GBIF data proves a population decline, abundance trend, climate effect, causal effect, or conservation status by itself.
-- Ordinary occurrence records can support mapping, exploratory occurrence summaries, first-pass spatial bias checks, and candidate workflows.
-- Species distribution modelling, range-shift work, and temporal trend work require explicit caveats about sampling bias, effort, coordinate quality, temporal coverage, and environmental or survey covariates.
-- If the claim needs abundance, absence, effort, standardized repeated sampling, or survey protocol data, flag that as not supported by occurrence-only data unless the preview shows relevant sampling-event discovery only as a discovery signal.
-- support.headline must use nuanced language such as "Good starting point", "Usable with caveats", "Exploratory only", "Needs different data type", or "Not enough data". Do not start the headline with "Yes" or "No".
-- readiness scores must be integers from 0 to 100.
-
-Workflow requirements:
-- Use the provided gbifQuery URLs and downloadPredicate in generated R and Python code.
-- Mention that the export package includes a predicate download request JSON with placeholder GBIF account notification details.
-- Reference the provided gbifQuery.sqlCubeQuery as the SQL/cube starter query when describing generated code links.
-- Include DOI-backed GBIF occurrence download guidance and datasetKey preservation.
-- R code should use rgbif, dplyr, and readr; include occ_download() for serious reuse; include optional CoordinateCleaner guidance and authenticated download guidance without real credentials.
-- Python code should use pygbif or requests plus pandas for preview/download request construction without real credentials.
-- cleaningR should include coordinate/date checks, duplicate handling, issue summaries, coordinate uncertainty handling, and placeholders for taxon-specific review.
-- methodsText, limitationsText, citationInstructions, markdownReport, and htmlReport must be ready to export.
-- markdownReport must include these sections: Title, User research question, Interpreted study scope, Taxon resolution, Region resolution, Data needed for intended claim, GBIF data availability preview, Data-type triage, Bias and limitation assessment, Supported and unsupported claims, Recommended filters, Recommended workflow, Generated code links, Citation instructions, Limitations and assumptions, What to do next.
-- Do not include fake sample records or demo results.
-`
