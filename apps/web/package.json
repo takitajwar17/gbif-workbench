@@ -11,7 +11,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node server/index.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "vercel-build": "npm run build",
+    "deploy": "vercel --prod"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.10",
