@@ -7,7 +7,6 @@ import {
   ClipboardList,
   Code2,
   Database,
-  Download,
   ExternalLink,
   FileArchive,
   FileJson,
@@ -245,7 +244,6 @@ function App() {
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-[1760px] items-center justify-between gap-3 px-4 lg:px-6">
           <a className="flex min-w-0 items-center gap-3 text-foreground no-underline" href="#workspace" aria-label="GBIF StudyScout workspace">
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">S</span>
             <span className="min-w-0">
               <strong className="block truncate text-sm font-semibold">GBIF StudyScout</strong>
               <span className="block truncate text-xs text-muted-foreground">Pre-download research triage</span>
@@ -269,22 +267,26 @@ function App() {
         </div>
       </header>
 
-      <main id="workspace" className="mx-auto flex w-full max-w-[1760px] flex-col px-4 py-5 lg:px-6 xl:h-[calc(100vh-4rem)] xl:overflow-hidden">
-        <section className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,420px)] xl:shrink-0">
+      <main id="workspace" className="mx-auto flex w-full max-w-[1760px] flex-col px-4 py-4 lg:px-6 xl:h-[calc(100vh-4rem)] xl:overflow-hidden" aria-busy={isBusy}>
+        <section className="mb-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,420px)] xl:shrink-0">
           <div className="space-y-2">
-            <Badge variant="outline">Research workflow</Badge>
-            <h1 className="max-w-4xl text-3xl font-semibold tracking-normal text-foreground md:text-4xl">
-              Plan your GBIF study before you download data.
+            <h1 className="max-w-4xl text-2xl font-semibold tracking-normal text-foreground md:text-3xl">
+              Scope a GBIF study before downloading data.
             </h1>
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
-              Convert a biodiversity research question into scoped GBIF filters, live data availability checks, claim triage, and reproducible workflow exports.
+              Turn a biodiversity research question into GBIF filters, live availability checks, claim triage, and reproducible workflow exports.
             </p>
           </div>
           <StatusCard status={status} preview={preview} topRisk={topRisk} />
         </section>
 
         <section className="grid gap-4 xl:min-h-0 xl:flex-1 xl:grid-cols-[390px_minmax(0,1fr)]">
-          <div data-pane="scope" className="space-y-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pb-4 xl:pr-2">
+          <div
+            data-pane="scope"
+            aria-label="Study scope controls"
+            tabIndex={0}
+            className="space-y-4 rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pb-4 xl:pr-2"
+          >
             <StudyIdeaCard
               question={question}
               draftTaxon={draftTaxon}
@@ -326,7 +328,12 @@ function App() {
             />
           </div>
 
-          <div data-pane="results" className="grid min-w-0 gap-4 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pb-4 xl:pr-2 2xl:grid-cols-[minmax(0,1.05fr)_minmax(430px,0.95fr)]">
+          <div
+            data-pane="results"
+            aria-label="Results and generated workflow"
+            tabIndex={0}
+            className="grid min-w-0 gap-4 rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pb-4 xl:pr-2 2xl:grid-cols-[minmax(0,1.05fr)_minmax(430px,0.95fr)]"
+          >
             <DataPreviewSection preview={preview} />
             <TriageSection
               triage={triage}
@@ -436,7 +443,7 @@ function StudyIdeaCard({
           />
         </div>
 
-        <div className="grid gap-2" aria-label="Demo prompts">
+        <div className="grid gap-2" aria-label="Example research prompts">
           {DEMO_PROMPTS.map((prompt) => (
             <Button key={prompt.question} type="button" variant="outline" className="h-auto justify-start whitespace-normal p-3 text-left" onClick={() => onDemoSelect(prompt.question)} disabled={isBusy}>
               <span>
@@ -453,20 +460,23 @@ function StudyIdeaCard({
           <TextField id="draft-taxon" label="Taxon" value={draftTaxon} onChange={onTaxonChange} placeholder="Optional taxon override" />
           <TextField id="draft-region" label="Region" value={draftRegion} onChange={onRegionChange} placeholder="Optional region override" />
           <TextField id="draft-years" label="Years" value={draftYears} onChange={onYearsChange} placeholder="YYYY-YYYY" />
-          <SelectField label="Analysis" value={draftAnalysis} onValueChange={(value) => onAnalysisChange(value as AnalysisType)} options={ANALYSIS_OPTIONS} />
+          <SelectField id="draft-analysis" label="Analysis" value={draftAnalysis} onValueChange={(value) => onAnalysisChange(value as AnalysisType)} options={ANALYSIS_OPTIONS} />
           <SelectField
+            id="draft-spatial-scale"
             label="Spatial scale"
             value={draftSpatialResolution || 'infer'}
             onValueChange={(value) => onSpatialResolutionChange(value === 'infer' ? '' : value)}
             options={[{ value: 'infer', label: 'Let StudyScout infer' }, ...SPATIAL_OPTIONS.map((value) => ({ value, label: value }))]}
           />
           <SelectField
+            id="draft-skill-level"
             label="Skill level"
             value={draftSkillLevel || 'infer'}
             onValueChange={(value) => onSkillLevelChange(value === 'infer' ? '' : value)}
             options={[{ value: 'infer', label: 'Let StudyScout infer' }, ...SKILL_OPTIONS.map((value) => ({ value, label: value }))]}
           />
           <SelectField
+            id="draft-code-output"
             label="Code output"
             value={preferredLanguage}
             onValueChange={(value) => onPreferredLanguageChange(value as PreferredLanguage)}
@@ -525,7 +535,7 @@ function InterpretationPanel({
             <TextField id="intent-start" label="Start" value={intent.startYear ?? ''} onChange={(value) => onChange({ startYear: numberOrNull(value) })} inputMode="numeric" />
             <TextField id="intent-end" label="End" value={intent.endYear ?? ''} onChange={(value) => onChange({ endYear: numberOrNull(value) })} inputMode="numeric" />
           </div>
-          <SelectField label="Analysis" value={intent.analysisType} onValueChange={(value) => onChange({ analysisType: value as AnalysisType })} options={ANALYSIS_OPTIONS} />
+          <SelectField id="intent-analysis" label="Analysis" value={intent.analysisType} onValueChange={(value) => onChange({ analysisType: value as AnalysisType })} options={ANALYSIS_OPTIONS} />
           <TextField id="intent-spatial" label="Spatial scale" value={intent.spatialResolution} onChange={(value) => onChange({ spatialResolution: value })} />
           <TextField id="intent-skill" label="Skill level" value={intent.skillLevel} onChange={(value) => onChange({ skillLevel: value })} />
         </div>
@@ -658,7 +668,7 @@ function SupportPanel({ triage }: { triage: TriageResult }) {
     <section className="space-y-4">
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Can GBIF support this study?</span>
+          <span className="text-xs font-medium text-muted-foreground">Can GBIF support this study?</span>
           <Badge variant="outline">Scope dependent</Badge>
         </div>
         <h2 className="text-xl font-semibold leading-tight">{triage.support.headline}</h2>
@@ -775,8 +785,8 @@ function WorkflowPanel({
           <TabsTrigger value="limitations">Limits</TabsTrigger>
         </TabsList>
         <TabsContent value={activeTab}>
-          <ScrollArea className="h-[360px] rounded-lg border bg-[#10241d]">
-            <pre className="p-4 font-mono text-xs leading-6 text-emerald-50">
+          <ScrollArea className="h-[360px] rounded-lg border bg-neutral-950">
+            <pre className="p-4 font-mono text-xs leading-6 text-neutral-50">
               <code>{tabContent}</code>
             </pre>
           </ScrollArea>
@@ -855,7 +865,7 @@ function MethodSection() {
 
 function StatusCard({ status, preview, topRisk }: { status: Status; preview: DataPreview | null; topRisk?: Risk }) {
   return (
-    <Card className="self-end">
+    <Card className="self-end" role="status" aria-live="polite">
       <CardContent className="flex items-start gap-3 p-4">
         <span className={`mt-1 size-2.5 shrink-0 rounded-full ${statusDotClass(status)}`} />
         <div className="min-w-0">
@@ -872,7 +882,9 @@ function StatusCard({ status, preview, topRisk }: { status: Status; preview: Dat
 function SectionTitle({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-primary [&_svg]:size-4">{icon}</span>
+      <span className="mt-0.5 shrink-0 text-primary [&_svg]:size-4" aria-hidden="true">
+        {icon}
+      </span>
       <div className="min-w-0">
         <CardTitle className="text-base">{title}</CardTitle>
         <CardDescription className="mt-1 leading-5">{description}</CardDescription>
@@ -905,11 +917,13 @@ function TextField({
 }
 
 function SelectField({
+  id,
   label,
   value,
   onValueChange,
   options,
 }: {
+  id: string
   label: string
   value: string
   onValueChange: (value: string) => void
@@ -917,9 +931,9 @@ function SelectField({
 }) {
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger>
+        <SelectTrigger id={id}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -937,7 +951,7 @@ function SelectField({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border bg-card p-4">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <strong className="mt-1 block text-2xl font-semibold tracking-normal">{value}</strong>
     </div>
   )
@@ -1033,7 +1047,7 @@ function SpatialCoveragePreview({ preview }: { preview: DataPreview }) {
 
         <div className="space-y-3">
           <div className="rounded-lg border bg-muted/35 p-3">
-            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Global locator</div>
+            <div className="mb-2 text-xs font-medium text-muted-foreground">Global locator</div>
             <svg className="block aspect-[100/52] w-full" viewBox="0 0 100 52" role="img" aria-label="Sample extent shown on a global coordinate grid">
               <rect x="0" y="0" width="100" height="52" rx="3" className="fill-background" />
               {[20, 40, 60, 80].map((x) => (
@@ -1228,8 +1242,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="grid min-h-72 place-items-center rounded-lg border border-dashed p-8 text-center">
       <div className="max-w-sm">
-        <Download className="mx-auto size-6 text-muted-foreground" />
-        <h3 className="mt-3 text-base font-semibold">{title}</h3>
+        <h3 className="text-base font-semibold">{title}</h3>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
       </div>
     </div>
@@ -1250,7 +1263,7 @@ function ExportButton({
   type?: string
 }) {
   return (
-    <Button type="button" variant="outline" size="sm" onClick={() => downloadBlob(filename, new Blob([content], { type }))}>
+    <Button type="button" variant="outline" size="sm" onClick={() => downloadBlob(filename, new Blob([content], { type: withCharset(type) }))}>
       {icon}
       {label}
     </Button>
@@ -1259,24 +1272,38 @@ function ExportButton({
 
 function ZipButton({ workflow }: { workflow: WorkflowPackage }) {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={async () => {
-        setLoading(true)
-        try {
-          const blob = await createExportZip(workflow)
-          downloadBlob('studyscout-export.zip', blob)
-        } finally {
-          setLoading(false)
-        }
-      }}
-    >
-      {loading ? <Loader2 className="animate-spin" /> : <FileArchive />}
-      ZIP
-    </Button>
+    <div className="min-w-0">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="w-full"
+        disabled={loading}
+        aria-busy={loading}
+        onClick={async () => {
+          setLoading(true)
+          setError('')
+          try {
+            const blob = await createExportZip(workflow)
+            downloadBlob('studyscout-export.zip', blob)
+          } catch (caught) {
+            setError(caught instanceof Error ? caught.message : 'Could not create ZIP export.')
+          } finally {
+            setLoading(false)
+          }
+        }}
+      >
+        {loading ? <Loader2 className="animate-spin" /> : <FileArchive />}
+        ZIP
+      </Button>
+      {error && (
+        <p className="mt-1 text-xs leading-5 text-destructive" role="alert">
+          ZIP export failed. {error}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -1360,6 +1387,10 @@ function downloadBlob(filename: string, blob: Blob) {
   anchor.click()
   anchor.remove()
   window.setTimeout(() => URL.revokeObjectURL(url), 2000)
+}
+
+function withCharset(type: string) {
+  return type.includes('charset=') || type === 'application/zip' ? type : `${type};charset=utf-8`
 }
 
 export default App
