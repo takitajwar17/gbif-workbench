@@ -15,7 +15,7 @@ app.use(express.json({ limit: '2mb' }))
 app.get('/api/health', (_request, response) => {
   response.json({
     ok: true,
-    service: 'gbif-studyscout',
+    service: 'gbif-workbench',
     openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
     intentModel: process.env.OPENAI_MODEL_INTENT || process.env.OPENAI_MODEL || 'gpt-5.4-mini',
     assessmentModel: process.env.OPENAI_MODEL_ASSESSMENT || process.env.OPENAI_MODEL || 'gpt-5.4-mini',
@@ -38,7 +38,7 @@ app.post('/api/parse-intent', async (request, response) => {
       model: interpreted.model,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'StudyScout interpretation failed.'
+    const message = error instanceof Error ? error.message : 'GBIF Workbench interpretation failed.'
     console.error('[parse-intent]', message)
     response.status(500).json({ error: message })
   }
@@ -87,7 +87,7 @@ app.post('/api/study-plan', async (request, response) => {
       },
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'StudyScout analysis failed.'
+    const message = error instanceof Error ? error.message : 'GBIF Workbench analysis failed.'
     console.error('[study-plan]', message)
     response.status(500).json({ error: message })
   }
@@ -100,7 +100,7 @@ app.get(/.*/, (_request, response) => {
 })
 
 app.listen(port, '127.0.0.1', () => {
-  console.log(`StudyScout API listening on http://127.0.0.1:${port}`)
+  console.log(`GBIF Workbench API listening on http://127.0.0.1:${port}`)
 })
 
 function finalizeWorkflow(workflow, payload) {

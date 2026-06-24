@@ -1,6 +1,6 @@
 # Scientific Guardrails
 
-StudyScout uses cautious research-planning language. It must never certify that a dataset is scientifically valid or ready for publication. The OpenAI assessment prompt requires every count, dataset, country, and temporal-coverage statement to be grounded in the live GBIF preview.
+GBIF Workbench uses cautious research-planning language. It must never certify that a dataset is scientifically valid or ready for publication. The OpenAI assessment prompt requires every count, dataset, country, and temporal-coverage statement to be grounded in the live GBIF preview.
 
 ## Required language
 
@@ -26,7 +26,7 @@ Avoid:
 
 ## Occurrence-only mismatch rule
 
-If the user asks about population decline, abundance trends, repeated monitoring, or biodiversity change indicators, StudyScout must warn that ordinary occurrence records are not enough for robust inference.
+If the user asks about population decline, abundance trends, repeated monitoring, or biodiversity change indicators, GBIF Workbench must warn that ordinary occurrence records are not enough for robust inference.
 
 GBIF occurrence data can still support exploratory mapping and data availability assessment, but abundance or decline claims require sampling effort, repeated surveys, absence or abundance information, standardized protocols, or sampling-event datasets.
 

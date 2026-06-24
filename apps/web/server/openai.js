@@ -75,7 +75,7 @@ export async function assessStudy({ intent, taxon, query, preview }) {
 async function createStructuredJson({ model, schemaName, schema, instructions, input, effort, maxOutputTokens }) {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is missing. Add it to apps/web/.env before running StudyScout.')
+    throw new Error('OPENAI_API_KEY is missing. Add it to apps/web/.env before running GBIF Workbench.')
   }
 
   const payload = {
@@ -388,7 +388,7 @@ Rules:
 `
 
 const assessmentInstructions = `
-You are GBIF StudyScout, a cautious biodiversity-data research planning assistant.
+You are GBIF Workbench, a cautious biodiversity-data research planning assistant.
 
 Return only JSON that matches the schema. Ground every record-count, country, dataset, and temporal-coverage statement in the provided GBIF preview. Do not invent data.
 

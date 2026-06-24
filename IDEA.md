@@ -1,24 +1,24 @@
 # Product Requirements Document
 
-# GBIF StudyScout
+# GBIF Workbench
 
 ## 1. Product Name
 
-**GBIF StudyScout**
+**GBIF Workbench**
 
 ## 2. One-Line Pitch
 
-**GBIF StudyScout helps researchers decide whether, when, and how GBIF-mediated data can support a proposed biodiversity study before they download the data.**
+**GBIF Workbench helps researchers decide whether, when, and how GBIF-mediated data can support a proposed biodiversity study before they download the data.**
 
 ## 3. Longer Product Description
 
-GBIF StudyScout is a bias-aware research triage and workflow-generation tool for GBIF-mediated biodiversity data.
+GBIF Workbench is a bias-aware research triage and workflow-generation tool for GBIF-mediated biodiversity data.
 
 A user enters a research question in natural language, for example:
 
 > “I want to study climate-driven range shifts of kingfishers in Southeast Asia from 1990 to 2025.”
 
-StudyScout interprets the research intent, identifies the relevant taxonomic, geographic, temporal, and analytical scope, previews GBIF data availability, detects likely data-use risks, warns when the requested research question requires data types beyond ordinary occurrence records, and generates a reproducible GBIF data-use workflow.
+GBIF Workbench interprets the research intent, identifies the relevant taxonomic, geographic, temporal, and analytical scope, previews GBIF data availability, detects likely data-use risks, warns when the requested research question requires data types beyond ordinary occurrence records, and generates a reproducible GBIF data-use workflow.
 
 The tool does **not** claim that a dataset is universally “good” or “bad.” Instead, it answers a more scientifically defensible question:
 
@@ -39,7 +39,7 @@ GBIF provides massive open biodiversity data, but many users struggle before ana
 
 The core problem is not simply data quality. It is **research-design uncertainty**.
 
-Many tools help users download, clean, or validate data after they already know what they want. StudyScout operates earlier:
+Many tools help users download, clean, or validate data after they already know what they want. GBIF Workbench operates earlier:
 
 ```text
 Research idea
@@ -84,7 +84,7 @@ Relevant recent winners include:
 * **galaxias**: helps researchers create Darwin Core Archives in R/Python workflows.
 * **BAM**: embeddable local biodiversity widget using GBIF-mediated data.
 
-StudyScout should follow that pattern:
+GBIF Workbench should follow that pattern:
 
 ```text
 Painful GBIF workflow
@@ -143,11 +143,11 @@ This is scientifically dangerous because suitability depends on:
 
 ### Good Positioning
 
-“StudyScout helps users understand whether GBIF-mediated data can support a proposed study, what assumptions and limitations apply, and what reproducible workflow to use.”
+“GBIF Workbench helps users understand whether GBIF-mediated data can support a proposed study, what assumptions and limitations apply, and what reproducible workflow to use.”
 
 ### Even Better Positioning
 
-“StudyScout prevents bad GBIF data use before it happens.”
+“GBIF Workbench prevents bad GBIF data use before it happens.”
 
 ## 8. Primary Users
 
@@ -211,7 +211,7 @@ They do not immediately know:
 
 Presence-only occurrence data is useful, but not enough for every research question.
 
-StudyScout must warn users when their question requires:
+GBIF Workbench must warn users when their question requires:
 
 * Sampling effort.
 * Absence data.
@@ -238,7 +238,7 @@ A region may have many occurrence records but still be poor for a particular stu
 
 ### Problem 4: Users Download First and Think Later
 
-Many workflows start with downloading massive data first. StudyScout should reverse this:
+Many workflows start with downloading massive data first. GBIF Workbench should reverse this:
 
 > Think first. Download second.
 
@@ -246,7 +246,7 @@ Many workflows start with downloading massive data first. StudyScout should reve
 
 Users may click around GBIF.org, export a file, clean manually, and later struggle to reproduce the exact query.
 
-StudyScout should generate:
+GBIF Workbench should generate:
 
 * GBIF.org search URL.
 * rgbif download code.
@@ -306,7 +306,7 @@ The entire tool must be:
 
 ## 11. Non-Goals
 
-StudyScout should **not** attempt to do everything.
+GBIF Workbench should **not** attempt to do everything.
 
 ### Non-Goal 1: It Is Not a Universal Biodiversity Research Assistant
 
@@ -338,7 +338,7 @@ Using CoordinateCleaner, sampbias, or occAssess is fine, but the product must ad
 
 ### Non-Goal 6: It Is Not a GBIF Occurrence Cube Viewer
 
-GBIF already supports occurrence cubes. StudyScout should use cubes, not merely repackage them.
+GBIF already supports occurrence cubes. GBIF Workbench should use cubes, not merely repackage them.
 
 ## 12. MVP Scope
 
@@ -666,7 +666,7 @@ I want to study climate-driven range shifts of kingfishers in Southeast Asia fro
 Output:
 
 ```text
-StudyScout Report
+GBIF Workbench Report
 
 Interpreted Study
 Taxon: Kingfishers / Alcedinidae
@@ -1337,7 +1337,7 @@ If uncertain, mark fields as null and include ambiguity.
 System instruction:
 
 ```text
-You explain structured GBIF StudyScout findings in plain language.
+You explain structured GBIF Workbench findings in plain language.
 You must not add unsupported claims.
 You must not say data is definitively suitable.
 Use cautious language.
@@ -1617,7 +1617,7 @@ Show:
 * Shows what GBIF can still support: exploratory occurrence mapping.
 * Generates safer alternative workflow.
 
-This second demo is crucial because it proves StudyScout is not blindly helping users misuse data.
+This second demo is crucial because it proves GBIF Workbench is not blindly helping users misuse data.
 
 ## 31. Acceptance Criteria
 
@@ -1669,7 +1669,7 @@ The system must:
 Suggested:
 
 ```text
-gbif-studyscout/
+gbif-workbench/
   README.md
   LICENSE
   docs/
@@ -2016,31 +2016,31 @@ Do not:
 
 These already provide aggregated summaries across taxonomic, temporal, and spatial dimensions.
 
-StudyScout should use them, not compete with them.
+GBIF Workbench should use them, not compete with them.
 
 ### CoordinateCleaner
 
 Useful for identifying common spatial/temporal errors in occurrence data.
 
-StudyScout can generate CoordinateCleaner-based cleaning workflows.
+GBIF Workbench can generate CoordinateCleaner-based cleaning workflows.
 
 ### sampbias
 
 Useful for estimating accessibility-related geographic sampling bias.
 
-StudyScout can reference or optionally integrate it.
+GBIF Workbench can reference or optionally integrate it.
 
 ### occAssess
 
 Useful for screening species occurrence data for common biases.
 
-StudyScout can use similar concepts or generate occAssess workflow suggestions.
+GBIF Workbench can use similar concepts or generate occAssess workflow suggestions.
 
 ### rgbif
 
 R package for GBIF API/download workflows.
 
-StudyScout should generate rgbif code, especially serious downloads through `occ_download()`.
+GBIF Workbench should generate rgbif code, especially serious downloads through `occ_download()`.
 
 ### pygbif
 
@@ -2052,19 +2052,19 @@ Useful for Python users, but R workflow may be stronger for biodiversity audienc
 
 Existing winner focused on biodiversity data quality checks.
 
-StudyScout must not duplicate this.
+GBIF Workbench must not duplicate this.
 
 ### ChatIPT
 
 Existing winner focused on data publishing.
 
-StudyScout must target data use/planning, not publishing.
+GBIF Workbench must target data use/planning, not publishing.
 
 ### BAM
 
 Existing winner focused on embedded local biodiversity exploration.
 
-StudyScout must target research planning and reproducibility.
+GBIF Workbench must target research planning and reproducibility.
 
 ## 41. Scientific Guardrails
 
@@ -2151,7 +2151,7 @@ Every recommendation should map back to query parameters, data summaries, rules,
 
 For Ebbe Nielsen Challenge submission, prepare:
 
-* Project title: GBIF StudyScout.
+* Project title: GBIF Workbench.
 * Abstract.
 * Rationale.
 * Operating instructions.
@@ -2168,13 +2168,13 @@ For Ebbe Nielsen Challenge submission, prepare:
 
 ## 45. Suggested Abstract
 
-GBIF StudyScout is a bias-aware research triage tool that helps users decide whether, when, and how GBIF-mediated data can support a proposed biodiversity study before they download data. Users enter a natural-language research question, and StudyScout interprets the taxonomic, geographic, temporal, and analytical scope; previews relevant GBIF data availability; identifies likely limitations and biases; warns when ordinary occurrence records are insufficient; and generates a reproducible GBIF workflow with query filters, code, methods text, limitations, and citation guidance. Rather than assigning a universal data-quality score, StudyScout translates GBIF data availability and quality signals into cautious, use-case-specific research planning guidance. The tool supports responsible reuse of GBIF-mediated data, improves reproducibility, and helps researchers avoid common data-use mistakes.
+GBIF Workbench is a bias-aware research triage tool that helps users decide whether, when, and how GBIF-mediated data can support a proposed biodiversity study before they download data. Users enter a natural-language research question, and GBIF Workbench interprets the taxonomic, geographic, temporal, and analytical scope; previews relevant GBIF data availability; identifies likely limitations and biases; warns when ordinary occurrence records are insufficient; and generates a reproducible GBIF workflow with query filters, code, methods text, limitations, and citation guidance. Rather than assigning a universal data-quality score, GBIF Workbench translates GBIF data availability and quality signals into cautious, use-case-specific research planning guidance. The tool supports responsible reuse of GBIF-mediated data, improves reproducibility, and helps researchers avoid common data-use mistakes.
 
 ## 46. Suggested Demo Script
 
 ### Opening
 
-“GBIF has enormous biodiversity data, but researchers often struggle before they even download: Can this data support my question? What filters should I use? Am I about to misuse occurrence records? StudyScout answers those questions before download.”
+“GBIF has enormous biodiversity data, but researchers often struggle before they even download: Can this data support my question? What filters should I use? Am I about to misuse occurrence records? GBIF Workbench answers those questions before download.”
 
 ### Demo 1
 
@@ -2210,11 +2210,11 @@ Show:
 
 ### Closing
 
-“StudyScout does not replace expert judgment. It makes assumptions visible, prevents common misuse, and turns GBIF data discovery into a reproducible research plan.”
+“GBIF Workbench does not replace expert judgment. It makes assumptions visible, prevents common misuse, and turns GBIF data discovery into a reproducible research plan.”
 
 ## 47. Final Product Definition
 
-GBIF StudyScout is not a chatbot, not a bias dashboard, not a data cleaner, and not a modelling platform.
+GBIF Workbench is not a chatbot, not a bias dashboard, not a data cleaner, and not a modelling platform.
 
 It is:
 

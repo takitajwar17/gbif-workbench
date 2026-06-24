@@ -2,7 +2,7 @@
 
 ## Strategic Answer
 
-We should submit StudyScout as a practical, open, repeatable pre-download planning tool for GBIF data users.
+We should submit GBIF Workbench as a practical, open, repeatable pre-download planning tool for GBIF data users.
 
 The product is stronger when judged against the challenge if it emphasizes:
 
@@ -22,7 +22,7 @@ Past winners repeatedly reduce friction in real GBIF workflows:
 - GBIF Alert made monitoring new occurrence records reusable.
 - GridDER, bdc, ShinyBIOMOD, WhereNext, and occCite all targeted concrete data-use or workflow pain.
 
-StudyScout follows that pattern but moves earlier in the workflow: before a download, before cleaning, before modelling, and before users overclaim from occurrence-only data.
+GBIF Workbench follows that pattern but moves earlier in the workflow: before a download, before cleaning, before modelling, and before users overclaim from occurrence-only data.
 
 ## What To Avoid
 
@@ -34,13 +34,13 @@ StudyScout follows that pattern but moves earlier in the workflow: before a down
 
 ## Judge-Facing Demo Script
 
-1. Open StudyScout and enter: "I want to study climate-driven range shifts of kingfishers in Southeast Asia from 1990 to 2025."
+1. Open GBIF Workbench and enter: "I want to study climate-driven range shifts of kingfishers in Southeast Asia from 1990 to 2025."
 2. Interpret scope first and show editable taxon, countries, years, and analysis type.
 3. Run live preview and show occurrence counts, year/country facets, issue flags, taxonomic breakdown, coordinate uncertainty, and sampling-event discovery.
 4. Show triage: what is supported, what is conditional, what is exploratory, and which claims are unsupported.
 5. Open generated workflow tabs: R, Python, SQL, Predicate, Cleaning, Methods, Citation, Limitations.
 6. Export ZIP and point to Markdown, Quarto, Jupyter, SQL, GBIF predicate request JSON, methods, limitations, and citation files.
-7. Run the frog population-decline prompt to show that StudyScout refuses occurrence-only overclaiming and redirects users toward sampling events, effort, and monitoring data.
+7. Run the frog population-decline prompt to show that GBIF Workbench refuses occurrence-only overclaiming and redirects users toward sampling events, effort, and monitoring data.
 
 ## Submission Checklist
 

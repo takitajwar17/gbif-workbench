@@ -1,6 +1,6 @@
-# GBIF StudyScout Web App
+# GBIF Workbench Web App
 
-React + Vite implementation of GBIF StudyScout with a local Express API.
+React + Vite implementation of GBIF Workbench with a local Express API.
 
 ## Scripts
 

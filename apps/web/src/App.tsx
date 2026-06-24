@@ -51,7 +51,7 @@ type WorkflowTab = 'r' | 'python' | 'sql' | 'predicate' | 'cleaning' | 'methods'
 type Status = 'idle' | 'interpreting' | 'previewing' | 'ready' | 'error'
 
 const ANALYSIS_OPTIONS: { value: AnalysisType; label: string }[] = [
-  { value: 'unknown', label: 'Let StudyScout infer' },
+  { value: 'unknown', label: 'Infer automatically' },
   { value: 'range_shift_exploration', label: 'Range-shift exploration' },
   { value: 'species_distribution_modelling', label: 'Species distribution modelling' },
   { value: 'distribution_mapping', label: 'Distribution mapping' },
@@ -137,7 +137,7 @@ function App() {
       setIntent(result.intent)
       setStatus('idle')
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'StudyScout interpretation failed.'
+      const message = caught instanceof Error ? caught.message : 'GBIF Workbench interpretation failed.'
       setError(`${message} No scope interpretation was generated.`)
       setStatus('error')
     }
@@ -179,7 +179,7 @@ function App() {
       setWorkflow(result.workflow)
       setStatus('ready')
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'StudyScout analysis failed.'
+      const message = caught instanceof Error ? caught.message : 'GBIF Workbench analysis failed.'
       setError(`${message} No research plan was generated.`)
       setStatus('error')
     }
@@ -243,9 +243,9 @@ function App() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-[1760px] items-center justify-between gap-3 px-4 lg:px-6">
-          <a className="flex min-w-0 items-center gap-3 text-foreground no-underline" href="#workspace" aria-label="GBIF StudyScout workspace">
+          <a className="flex min-w-0 items-center gap-3 text-foreground no-underline" href="#workspace" aria-label="GBIF Workbench workspace">
             <span className="min-w-0">
-              <strong className="block truncate text-sm font-semibold">GBIF StudyScout</strong>
+              <strong className="block truncate text-sm font-semibold">GBIF Workbench</strong>
               <span className="block truncate text-xs text-muted-foreground">Pre-download research triage</span>
             </span>
           </a>
@@ -360,7 +360,7 @@ async function requestStudyPlan(payload: StudyPlanRequest): Promise<StudyPlanRes
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null
-    throw new Error(body?.error || `StudyScout API failed with status ${response.status}`)
+    throw new Error(body?.error || `GBIF Workbench API failed with status ${response.status}`)
   }
 
   return (await response.json()) as StudyPlanResponse
@@ -375,7 +375,7 @@ async function requestStudyIntent(payload: StudyPlanRequest): Promise<IntentResp
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null
-    throw new Error(body?.error || `StudyScout API failed with status ${response.status}`)
+    throw new Error(body?.error || `GBIF Workbench API failed with status ${response.status}`)
   }
 
   return (await response.json()) as IntentResponse
@@ -466,14 +466,14 @@ function StudyIdeaCard({
             label="Spatial scale"
             value={draftSpatialResolution || 'infer'}
             onValueChange={(value) => onSpatialResolutionChange(value === 'infer' ? '' : value)}
-            options={[{ value: 'infer', label: 'Let StudyScout infer' }, ...SPATIAL_OPTIONS.map((value) => ({ value, label: value }))]}
+            options={[{ value: 'infer', label: 'Infer automatically' }, ...SPATIAL_OPTIONS.map((value) => ({ value, label: value }))]}
           />
           <SelectField
             id="draft-skill-level"
             label="Skill level"
             value={draftSkillLevel || 'infer'}
             onValueChange={(value) => onSkillLevelChange(value === 'infer' ? '' : value)}
-            options={[{ value: 'infer', label: 'Let StudyScout infer' }, ...SKILL_OPTIONS.map((value) => ({ value, label: value }))]}
+            options={[{ value: 'infer', label: 'Infer automatically' }, ...SKILL_OPTIONS.map((value) => ({ value, label: value }))]}
           />
           <SelectField
             id="draft-code-output"
@@ -656,7 +656,7 @@ function TriageSection({
             <WorkflowPanel workflow={workflow} query={query} triage={triage} activeTab={activeWorkflowTab} setActiveTab={onWorkflowTabChange} />
           </div>
         ) : (
-          <EmptyState title="Awaiting triage" body="StudyScout will classify supported, conditional, exploratory, and unsupported claims after live analysis." />
+          <EmptyState title="Awaiting triage" body="GBIF Workbench will classify supported, conditional, exploratory, and unsupported claims after live analysis." />
         )}
       </CardContent>
     </Card>
@@ -794,13 +794,13 @@ function WorkflowPanel({
       </Tabs>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <ExportButton icon={<FileText />} label="Markdown" filename="studyscout-plan.md" content={workflow.markdownReport} />
-        <ExportButton icon={<FileJson />} label="JSON" filename="studyscout-plan.json" content={workflow.jsonPlan} type="application/json" />
-        <ExportButton icon={<Braces />} label="HTML" filename="studyscout-report.html" content={workflow.htmlReport} type="text/html" />
-        <ExportButton icon={<FileText />} label="Quarto" filename="studyscout-workflow.qmd" content={createQuartoNotebook(workflow)} />
+        <ExportButton icon={<FileText />} label="Markdown" filename="gbif-workbench-plan.md" content={workflow.markdownReport} />
+        <ExportButton icon={<FileJson />} label="JSON" filename="gbif-workbench-plan.json" content={workflow.jsonPlan} type="application/json" />
+        <ExportButton icon={<Braces />} label="HTML" filename="gbif-workbench-report.html" content={workflow.htmlReport} type="text/html" />
+        <ExportButton icon={<FileText />} label="Quarto" filename="gbif-workbench-workflow.qmd" content={createQuartoNotebook(workflow)} />
         <ExportButton icon={<Database />} label="SQL" filename="gbif-occurrence-cube.sql" content={workflow.sqlCode} />
         <ExportButton icon={<FileJson />} label="Predicate" filename="gbif-download-request.json" content={workflow.downloadRequestJson} type="application/json" />
-        <ExportButton icon={<FileJson />} label="Jupyter" filename="studyscout-workflow.ipynb" content={createJupyterNotebook(workflow)} type="application/json" />
+        <ExportButton icon={<FileJson />} label="Jupyter" filename="gbif-workbench-workflow.ipynb" content={createJupyterNotebook(workflow)} type="application/json" />
         <ZipButton workflow={workflow} />
       </div>
     </section>
@@ -844,7 +844,7 @@ function MethodSection() {
         <div>
           <h2 className="text-lg font-semibold">Scientific guardrail</h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
-            StudyScout does not certify data as valid. It summarizes GBIF-mediated data availability and common data-use risks for a proposed research question. Final suitability depends on method choice, taxon expertise, scale, and additional data sources.
+            GBIF Workbench does not certify data as valid. It summarizes GBIF-mediated data availability and common data-use risks for a proposed research question. Final suitability depends on method choice, taxon expertise, scale, and additional data sources.
           </p>
         </div>
         <div className="grid gap-2 text-sm">
@@ -1287,7 +1287,7 @@ function ZipButton({ workflow }: { workflow: WorkflowPackage }) {
           setError('')
           try {
             const blob = await createExportZip(workflow)
-            downloadBlob('studyscout-export.zip', blob)
+            downloadBlob('gbif-workbench-export.zip', blob)
           } catch (caught) {
             setError(caught instanceof Error ? caught.message : 'Could not create ZIP export.')
           } finally {

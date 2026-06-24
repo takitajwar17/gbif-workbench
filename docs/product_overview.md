@@ -1,6 +1,6 @@
 # Product Overview
 
-GBIF StudyScout turns a proposed biodiversity research question into a defensible GBIF data-use plan.
+GBIF Workbench turns a proposed biodiversity research question into a defensible GBIF data-use plan.
 
 The product answers:
 
@@ -13,17 +13,17 @@ The product answers:
 ## MVP user flow
 
 1. The user enters a research question in natural language.
-2. StudyScout sends the question and optional overrides to the local API.
+2. GBIF Workbench sends the question and optional overrides to the local API.
 3. OpenAI returns a structured interpretation of the taxon, region, country filters, years, and analysis type.
-4. StudyScout resolves the taxon through the GBIF Backbone.
-5. StudyScout queries public GBIF occurrence summaries and sample records.
+4. GBIF Workbench resolves the taxon through the GBIF Backbone.
+5. GBIF Workbench queries public GBIF occurrence summaries and sample records.
 6. OpenAI generates support classification, risks, workflow code, methods text, limitations text, and citation instructions from the live GBIF preview.
 7. The user can confirm or correct taxon, region, country filters, years, and analysis type, then rerun the same live pipeline.
 8. The user exports Markdown, HTML, JSON, SQL, GBIF predicate request JSON, Quarto, Jupyter, or ZIP workflow files.
 
 ## Core product principle
 
-StudyScout always separates:
+GBIF Workbench always separates:
 
 - data availability,
 - data suitability,
@@ -33,4 +33,4 @@ A large number of records does not automatically imply suitability for a strong 
 
 ## Demo prompt policy
 
-The UI may include prompt starters to help users try realistic research questions. These prompts only populate the question field. StudyScout renders results only after the app API calls OpenAI and live GBIF endpoints, and the repository does not ship static study-plan examples as product data.
+The UI may include prompt starters to help users try realistic research questions. These prompts only populate the question field. GBIF Workbench renders results only after the app API calls OpenAI and live GBIF endpoints, and the repository does not ship static study-plan examples as product data.

@@ -46,10 +46,12 @@ describe('createExportZip', () => {
     await expect(readZipText(archive, 'gbif_occurrence_cube.sql')).resolves.toContain('SELECT COUNT(*)')
     await expect(readZipText(archive, 'gbif_download_request.json')).resolves.toContain('SIMPLE_CSV')
     await expect(readZipText(archive, 'citation_instructions.md')).resolves.toContain('Citation instructions')
+    await expect(readZipText(archive, 'README.md')).resolves.toContain('GBIF Workbench Export')
     await expect(readZipText(archive, 'study_plan.qmd')).resolves.toContain('GBIF predicate download request')
   })
 
   it('creates notebook-style exports from workflow text', () => {
+    expect(createQuartoNotebook(workflow)).toContain('title: "GBIF Workbench Workflow"')
     expect(createQuartoNotebook(workflow)).toContain('```{r}')
     expect(createQuartoNotebook(workflow)).toContain('```{sql}')
     expect(createQuartoNotebook(workflow)).toContain('```{json}')

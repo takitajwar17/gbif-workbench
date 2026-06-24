@@ -115,7 +115,7 @@ export async function previewGbifData(intent, query) {
     warnings.push('No georeferenced records without GBIF geospatial issues were found for this preview.')
   }
   if (facetResponse.count > 500000) {
-    warnings.push('This query is large; StudyScout used aggregated previews and sample points only.')
+    warnings.push('This query is large; GBIF Workbench used aggregated previews and sample points only.')
   }
   if (sampleResponse.warning) warnings.push(sampleResponse.warning)
 
@@ -313,7 +313,7 @@ function createSqlCubeQuery(params) {
   const countries = Array.isArray(params.country) ? params.country : params.country ? [String(params.country)] : []
   if (countries.length) where.push(`countryCode IN (${countries.map((country) => `'${country.replace(/'/g, "''")}'`).join(', ')})`)
 
-  return `-- GBIF StudyScout occurrence-cube starter query
+  return `-- GBIF Workbench occurrence-cube starter query
 -- Submit through the GBIF SQL download API or adapt in the GBIF.org SQL download UI.
 -- This summarizes occurrence counts by species, year, and country.
 -- Add grid-cell functions or environmental joins when your analysis requires spatial cubes.

@@ -1,6 +1,6 @@
 # IDEA.md Alignment Notes
 
-This implementation follows the GBIF StudyScout product definition in `IDEA.md` with one intentional architecture change: the PRD's deterministic service sketch is replaced by OpenAI structured outputs plus live GBIF previews. That version is better for the current product because it handles ambiguous natural-language study scopes, region definitions, and report drafting without shipping hardcoded demo interpretations.
+This implementation follows the GBIF Workbench product definition in `IDEA.md` with one intentional architecture change: the PRD's deterministic service sketch is replaced by OpenAI structured outputs plus live GBIF previews. That version is better for the current product because it handles ambiguous natural-language study scopes, region definitions, and report drafting without shipping hardcoded demo interpretations.
 
 ## Kept Because The App Version Is Better
 

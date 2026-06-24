@@ -23,7 +23,7 @@ export async function createExportZip(workflow: WorkflowPackage) {
 
 export function createQuartoNotebook(workflow: WorkflowPackage) {
   return `---
-title: "GBIF StudyScout Workflow"
+title: "GBIF Workbench Workflow"
 format: html
 execute:
   warning: false
@@ -124,9 +124,9 @@ function codeCell(source: string) {
 }
 
 function exportReadme() {
-  return `# GBIF StudyScout Export
+  return `# GBIF Workbench Export
 
-This package was generated from a live StudyScout run.
+This package was generated from a live GBIF Workbench run.
 
 Use the workflow files to reproduce the scoped GBIF query, request a DOI-backed GBIF download, clean records, and cite the resulting data. The JSON file contains the interpreted study scope, GBIF taxon resolution, aggregated preview, triage output, model metadata, and generated workflow text.
 `

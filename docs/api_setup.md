@@ -1,6 +1,6 @@
 # API Setup
 
-StudyScout uses a local Express API that calls OpenAI and public GBIF endpoints. The browser never calls OpenAI directly.
+GBIF Workbench uses a local Express API that calls OpenAI and public GBIF endpoints. The browser never calls OpenAI directly.
 
 ## Environment
 
@@ -42,7 +42,7 @@ The API sets `store: false` for model calls. If the configured model is unavaila
 
 ## Preview strategy
 
-StudyScout uses `occurrence/search` with `limit=0` and facets for planning summaries:
+GBIF Workbench uses `occurrence/search` with `limit=0` and facets for planning summaries:
 
 - `year`
 - `country`
