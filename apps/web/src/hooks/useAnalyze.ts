@@ -1,6 +1,6 @@
 import { startTransition, useState } from 'react'
 import { parseCountryList } from '@/lib/regions'
-import { parseYearRange } from '@/lib/format'
+import { friendlyError, parseYearRange } from '@/lib/format'
 import type { Status } from '@/lib/status'
 import type { WorkflowGroup } from '@/constants/options'
 import { requestStudyIntent, requestStudyPlan } from '@/components/api/api'
@@ -45,6 +45,7 @@ export function useAnalyze() {
 
   const isBusy = status === 'interpreting' || status === 'previewing'
   const topRisk = triage?.risks.find((risk) => risk.level === 'BLOCKING' || risk.level === 'HIGH')
+  const hasResults = Boolean(intent || taxon || preview || triage || workflow || error)
 
   async function interpretScope() {
     const trimmedQuestion = question.trim()
@@ -65,8 +66,8 @@ export function useAnalyze() {
       setIntent(result.intent)
       setStatus('idle')
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'GBIF Workbench interpretation failed.'
-      setError(`${message} No scope interpretation was generated.`)
+      const raw = caught instanceof Error ? caught.message : 'GBIF Workbench interpretation failed.'
+      setError(friendlyError(raw, 'GBIF Workbench interpretation failed.'))
       setStatus('error')
     }
   }
@@ -113,8 +114,8 @@ export function useAnalyze() {
         setWorkflow(result.workflow)
       })
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'GBIF Workbench analysis failed.'
-      setError(`${message} No research plan was generated.`)
+      const raw = caught instanceof Error ? caught.message : 'GBIF Workbench analysis failed.'
+      setError(friendlyError(raw, 'GBIF Workbench analysis failed.'))
       setStatus('error')
     }
   }
@@ -216,6 +217,7 @@ export function useAnalyze() {
     activeQueryTab,
     setActiveQueryTab,
     topRisk,
+    hasResults,
     selectDemoPrompt,
     changeQuestion,
     interpretScope,

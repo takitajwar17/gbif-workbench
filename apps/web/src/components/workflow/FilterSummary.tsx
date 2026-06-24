@@ -9,7 +9,10 @@ export function FilterSummary({ query, recommendedFilters }: { query: GbifQuery;
     <Card className="bg-muted/35">
       <CardContent className="space-y-3 p-4">
         <div>
-          <strong className="text-sm">GBIF filters</strong>
+          <div className="flex items-baseline justify-between gap-2">
+            <strong className="text-sm">Filters applied to GBIF</strong>
+            <span className="text-xs text-muted-foreground">{apiFilters.length} parameter{apiFilters.length === 1 ? '' : 's'}</span>
+          </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {apiFilters.map(([key, value]) => (
               <Badge key={key} variant="secondary">
@@ -20,7 +23,8 @@ export function FilterSummary({ query, recommendedFilters }: { query: GbifQuery;
         </div>
         {recommendedFilters.length > 0 && (
           <div>
-            <strong className="text-sm">Recommended filters</strong>
+            <strong className="text-sm">Recommended additional filters</strong>
+            <p className="mt-1 text-xs text-muted-foreground">The Workbench suggests these to reduce noise and bias in your dataset.</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-sm leading-6 text-muted-foreground">
               {recommendedFilters.map((filter) => (
                 <li key={filter}>{filter}</li>

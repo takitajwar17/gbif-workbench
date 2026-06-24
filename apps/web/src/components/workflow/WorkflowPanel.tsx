@@ -12,6 +12,13 @@ import { ProseBlock } from './ProseBlock'
 import { ZipButton } from './ZipButton'
 import type { GbifQuery, TriageResult, WorkflowPackage } from '@/lib/types'
 
+const GROUP_DESCRIPTIONS: Record<WorkflowGroup, string> = {
+  code: 'R and Python scripts you can paste into your own analysis.',
+  query: 'SQL cube query and download predicate ready for the GBIF API.',
+  writeup: 'Methods, citation, and limitations paragraphs for your manuscript.',
+  cleaning: 'Standalone R script for coordinate and taxonomy cleanup.',
+}
+
 export function WorkflowPanel({
   workflow,
   query,
@@ -55,20 +62,10 @@ export function WorkflowPanel({
     return workflow.limitationsText
   }, [activeWriteupTab, workflow.methodsText, workflow.citationInstructions, workflow.limitationsText])
   const writeupLabel =
-    activeWriteupTab === 'methods'
-      ? 'Methods'
-      : activeWriteupTab === 'citation'
-        ? 'Citation'
-        : 'Limitations'
+    activeWriteupTab === 'methods' ? 'Methods' : activeWriteupTab === 'citation' ? 'Citation' : 'Limitations'
 
   const copyContent =
-    activeGroup === 'code'
-      ? codeContent
-      : activeGroup === 'query'
-        ? queryContent
-        : activeGroup === 'writeup'
-          ? writeupContent
-          : workflow.cleaningR
+    activeGroup === 'code' ? codeContent : activeGroup === 'query' ? queryContent : activeGroup === 'writeup' ? writeupContent : workflow.cleaningR
   const copyLabel =
     activeGroup === 'code'
       ? `Copy ${codeLabel}`
@@ -81,25 +78,29 @@ export function WorkflowPanel({
   return (
     <section id="exports" className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <Code2 className="size-4 text-primary" />
-          Generated workflow
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Code2 className="size-4 text-primary" aria-hidden="true" />
+            Generated workflow
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">R and Python code, GBIF queries, methods text, and a one-click export zip.</p>
         </div>
-        <CopyButton content={copyContent} label={copyLabel} />
+        <div className="flex flex-wrap items-center gap-2">
+          <CopyButton content={copyContent} label={copyLabel} />
+          <Button variant="outline" size="sm" asChild>
+            <a href={query.gbifSearchUrl} target="_blank" rel="noreferrer">
+              GBIF.org <ExternalLink />
+            </a>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <a href={query.apiSearchUrl} target="_blank" rel="noreferrer">
+              API preview <ExternalLink />
+            </a>
+          </Button>
+        </div>
       </div>
+
       <FilterSummary query={query} recommendedFilters={triage.recommendedFilters} />
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" asChild>
-          <a href={query.gbifSearchUrl} target="_blank" rel="noreferrer">
-            GBIF.org search <ExternalLink />
-          </a>
-        </Button>
-        <Button variant="outline" size="sm" asChild>
-          <a href={query.apiSearchUrl} target="_blank" rel="noreferrer">
-            API preview <ExternalLink />
-          </a>
-        </Button>
-      </div>
 
       <Tabs value={activeGroup} onValueChange={(value) => setActiveGroup(value as WorkflowGroup)}>
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
@@ -110,101 +111,70 @@ export function WorkflowPanel({
             </TabsTrigger>
           ))}
         </TabsList>
+        <p className="text-xs leading-5 text-muted-foreground">{GROUP_DESCRIPTIONS[activeGroup]}</p>
 
         <TabsContent value="code" className="min-h-0">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1" role="tablist" aria-label="Code language">
-              {(['r', 'python'] as const).map((language) => (
-                <button
-                  key={language}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeCodeLanguage === language}
-                  onClick={() => setActiveCodeLanguage(language)}
-                  className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                    activeCodeLanguage === language
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  {language === 'r' ? 'R' : 'Python'}
-                </button>
-              ))}
-            </div>
-            <ExportButton
-              icon={<Download />}
-              label={codeLabel}
-              filename={activeCodeLanguage === 'r' ? 'gbif-workbench-workflow.R' : 'gbif-workbench-workflow.py'}
-              content={codeContent}
-            />
-          </div>
+          <SubTabs
+            label="Language"
+            value={activeCodeLanguage}
+            onChange={setActiveCodeLanguage}
+            options={[
+              { value: 'r', label: 'R' },
+              { value: 'python', label: 'Python' },
+            ]}
+          />
+          <CodeToolbar
+            exportIcon={<Download />}
+            exportLabel={codeLabel}
+            exportFilename={activeCodeLanguage === 'r' ? 'gbif-workbench-workflow.R' : 'gbif-workbench-workflow.py'}
+            exportContent={codeContent}
+          />
           <CodeBlock content={codeContent} language={codeLabel} />
         </TabsContent>
 
         <TabsContent value="query" className="min-h-0">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1" role="tablist" aria-label="Query type">
-              {(['sql', 'predicate'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeQueryTab === tab}
-                  onClick={() => setActiveQueryTab(tab)}
-                  className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                    activeQueryTab === tab
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  {tab === 'sql' ? 'SQL' : 'Predicate'}
-                </button>
-              ))}
-            </div>
-            <ExportButton
-              icon={<Download />}
-              label={queryLabel}
-              filename={activeQueryTab === 'sql' ? 'gbif-occurrence-cube.sql' : 'gbif-download-request.json'}
-              content={queryContent}
-              type={activeQueryTab === 'sql' ? undefined : 'application/json'}
-            />
-          </div>
+          <SubTabs
+            label="Format"
+            value={activeQueryTab}
+            onChange={setActiveQueryTab}
+            options={[
+              { value: 'sql', label: 'SQL' },
+              { value: 'predicate', label: 'Predicate' },
+            ]}
+          />
+          <CodeToolbar
+            exportIcon={<Download />}
+            exportLabel={queryLabel}
+            exportFilename={activeQueryTab === 'sql' ? 'gbif-occurrence-cube.sql' : 'gbif-download-request.json'}
+            exportContent={queryContent}
+            exportType={activeQueryTab === 'sql' ? undefined : 'application/json'}
+          />
           <CodeBlock content={queryContent} language={queryLabel === 'SQL' ? 'sql' : 'json'} />
         </TabsContent>
 
         <TabsContent value="writeup" className="min-h-0">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1" role="tablist" aria-label="Write-up section">
-              {(['methods', 'citation', 'limitations'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeWriteupTab === tab}
-                  onClick={() => setActiveWriteupTab(tab)}
-                  className={`rounded-md px-2 py-1 text-xs font-medium capitalize transition-colors ${
-                    activeWriteupTab === tab
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-            <ExportButton
-              icon={<Download />}
-              label={writeupLabel}
-              filename={
-                activeWriteupTab === 'methods'
-                  ? 'gbif-workbench-methods.md'
-                  : activeWriteupTab === 'citation'
-                    ? 'gbif-workbench-citation.md'
-                    : 'gbif-workbench-limitations.md'
-              }
-              content={writeupContent}
-            />
-          </div>
+          <SubTabs
+            label="Section"
+            value={activeWriteupTab}
+            onChange={setActiveWriteupTab}
+            options={[
+              { value: 'methods', label: 'Methods' },
+              { value: 'citation', label: 'Citation' },
+              { value: 'limitations', label: 'Limitations' },
+            ]}
+          />
+          <CodeToolbar
+            exportIcon={<Download />}
+            exportLabel={writeupLabel}
+            exportFilename={
+              activeWriteupTab === 'methods'
+                ? 'gbif-workbench-methods.md'
+                : activeWriteupTab === 'citation'
+                  ? 'gbif-workbench-citation.md'
+                  : 'gbif-workbench-limitations.md'
+            }
+            exportContent={writeupContent}
+          />
           <ProseBlock content={writeupContent} />
         </TabsContent>
 
@@ -221,7 +191,60 @@ export function WorkflowPanel({
         </TabsContent>
       </Tabs>
 
-      <ZipButton workflow={workflow} query={query} />
+      <div className="flex justify-end pt-1">
+        <ZipButton workflow={workflow} query={query} />
+      </div>
     </section>
+  )
+}
+
+function SubTabs<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string
+  value: T
+  onChange: (next: T) => void
+  options: { value: T; label: string }[]
+}) {
+  return (
+    <div className="mb-2 inline-flex items-center gap-1 rounded-md border bg-muted/40 p-1 text-xs" role="tablist" aria-label={label}>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="tab"
+          aria-selected={value === option.value}
+          onClick={() => onChange(option.value)}
+          className={`rounded-sm px-2.5 py-1 font-medium transition-colors ${
+            value === option.value ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function CodeToolbar({
+  exportIcon,
+  exportLabel,
+  exportFilename,
+  exportContent,
+  exportType,
+}: {
+  exportIcon: React.ReactNode
+  exportLabel: string
+  exportFilename: string
+  exportContent: string
+  exportType?: string
+}) {
+  return (
+    <div className="mb-2 flex items-center justify-end gap-2">
+      <ExportButton icon={exportIcon} label={exportLabel} filename={exportFilename} content={exportContent} type={exportType} />
+    </div>
   )
 }

@@ -17,22 +17,32 @@ function SupportGroup({ title, items, tone }: { title: string; items: string[]; 
   )
 }
 
+function deriveSupportBadge(triage: TriageResult): { label: string; variant: 'success' | 'warning' | 'destructive' } {
+  const bad = triage.support.notSupportedWithOccurrenceOnly.length + triage.support.insufficientData.length
+  const caution = triage.support.conditionallySupported.length + triage.support.exploratoryOnly.length
+  const good = triage.support.stronglySupported.length
+  if (bad > 0) return { label: 'Limited support', variant: 'destructive' }
+  if (good > 0 && caution === 0) return { label: 'Strongly supported', variant: 'success' }
+  return { label: 'Scope dependent', variant: 'warning' }
+}
+
 export function SupportPanel({ triage }: { triage: TriageResult }) {
+  const badge = deriveSupportBadge(triage)
   return (
     <section className="space-y-4">
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-medium text-muted-foreground">Can GBIF support this study?</span>
-          <Badge variant="outline">Scope dependent</Badge>
+          <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
         <h2 className="text-xl font-semibold leading-tight">{triage.support.headline}</h2>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Readiness label="Spatial" value={triage.readiness.spatial} />
-        <Readiness label="Temporal" value={triage.readiness.temporal} />
-        <Readiness label="Taxonomic" value={triage.readiness.taxonomic} />
-        <Readiness label="Data type" value={triage.readiness.dataType} />
+        <Readiness label="Spatial coverage" value={triage.readiness.spatial} hint="Geographic extent of available records" />
+        <Readiness label="Temporal coverage" value={triage.readiness.temporal} hint="How well the time window is sampled" />
+        <Readiness label="Taxonomic coverage" value={triage.readiness.taxonomic} hint="Confidence in the GBIF taxon match" />
+        <Readiness label="Data type fit" value={triage.readiness.dataType} hint="Whether GBIF occurrence data fits the analysis" />
       </div>
 
       <div className="space-y-3">
@@ -42,7 +52,7 @@ export function SupportPanel({ triage }: { triage: TriageResult }) {
         <SupportGroup title="Not supported by occurrence-only data" items={triage.support.notSupportedWithOccurrenceOnly} tone="danger" />
         <SupportGroup title="Insufficient data" items={triage.support.insufficientData} tone="danger" />
         <SupportGroup title="Unsupported claims" items={triage.unsupportedClaims} tone="danger" />
-        <SupportGroup title="What to do next" items={triage.nextSteps} tone="good" />
+        <SupportGroup title="Suggested next steps" items={triage.nextSteps} tone="good" />
       </div>
     </section>
   )

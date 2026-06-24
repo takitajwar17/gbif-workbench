@@ -9,9 +9,18 @@ export function PreviewSection({ preview }: { preview: DataPreview | null }) {
   return (
     <Card className="min-w-0">
       <CardHeader>
-        <SectionTitle icon={<Database />} title="GBIF data preview" description="Aggregated search facets from the current scope." />
+        <SectionTitle icon={<Database />} title="Live data preview" description="Aggregated counts, sample points, and facet breakdowns from GBIF for your current scope." />
       </CardHeader>
-      <CardContent>{preview ? <PreviewPanel preview={preview} /> : <EmptyState title="No live preview yet" body="Run a study idea to fetch GBIF counts, facets, issue flags, and sample records." />}</CardContent>
+      <CardContent>
+        {preview ? (
+          <PreviewPanel preview={preview} />
+        ) : (
+          <EmptyState
+            title="Awaiting live preview"
+            body="Run a study idea to fetch GBIF counts, sample points, issue flags, and coordinate uncertainty. The preview updates whenever you rerun the scope."
+          />
+        )}
+      </CardContent>
     </Card>
   )
 }

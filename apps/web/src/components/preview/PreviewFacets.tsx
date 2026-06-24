@@ -1,25 +1,28 @@
 import { formatNumber } from '@/lib/format'
 import type { CountBucket } from '@/lib/types'
 
-export function Histogram({ title, buckets }: { title: string; buckets: CountBucket[] }) {
+export function Histogram({ title, buckets, axisLabel }: { title: string; buckets: CountBucket[]; axisLabel?: string }) {
   const visible = buckets.slice(-28)
   const max = Math.max(1, ...visible.map((bucket) => bucket.count))
+  const firstLabel = visible[0]?.name ?? 'n/a'
+  const lastLabel = visible.at(-1)?.name ?? 'n/a'
+  const rangeLabel = visible.length > 1 ? `${firstLabel} – ${lastLabel}` : firstLabel
+  const axisText = axisLabel ? `${axisLabel}: ${rangeLabel}` : rangeLabel
   return (
     <section className="rounded-lg border bg-card p-4">
       <h3 className="text-sm font-semibold">{title}</h3>
-      <div className="mt-3 flex h-36 items-end gap-1 border-b pb-2">
+      <div className="mt-3 flex h-36 items-end gap-1 border-b pb-2" aria-label={`Bar chart of ${title}`} role="img">
         {visible.map((bucket) => (
           <span
             key={bucket.name}
             className="min-w-0 flex-1 rounded-t bg-primary"
             title={`${bucket.name}: ${formatNumber(bucket.count)}`}
+            aria-label={`${bucket.name}: ${formatNumber(bucket.count)} records`}
             style={{ height: `${Math.max(5, (bucket.count / max) * 100)}%` }}
           />
         ))}
       </div>
-      <small className="mt-2 block text-xs text-muted-foreground">
-        {visible[0]?.name ?? 'n/a'} {visible.length > 1 ? `to ${visible.at(-1)?.name}` : ''}
-      </small>
+      <small className="mt-2 block text-xs text-muted-foreground">{axisText}</small>
     </section>
   )
 }
@@ -28,10 +31,12 @@ export function BarList({
   title,
   buckets,
   formatter = (value: string) => value,
+  emptyText = 'No facet values returned.',
 }: {
   title: string
   buckets: CountBucket[]
   formatter?: (value: string) => string
+  emptyText?: string
 }) {
   const max = Math.max(1, ...buckets.map((bucket) => bucket.count))
   return (
@@ -45,13 +50,13 @@ export function BarList({
                 {formatter(bucket.name)}
               </span>
               <div className="h-2 overflow-hidden rounded-full bg-muted">
-                <i className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(4, (bucket.count / max) * 100)}%` }} />
+                <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(4, (bucket.count / max) * 100)}%` }} />
               </div>
-              <em className="font-mono not-italic text-muted-foreground">{formatNumber(bucket.count)}</em>
+              <span className="font-mono text-muted-foreground">{formatNumber(bucket.count)}</span>
             </div>
           ))
         ) : (
-          <small className="text-xs text-muted-foreground">No facet values returned.</small>
+          <p className="text-xs text-muted-foreground">{emptyText}</p>
         )}
       </div>
     </section>

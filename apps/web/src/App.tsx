@@ -1,4 +1,5 @@
-import { AlertTriangle, Loader2, Play } from 'lucide-react'
+import { AlertTriangle, Loader2, Menu, Play, X } from 'lucide-react'
+import { useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useAnalyze } from './hooks/useAnalyze'
@@ -13,12 +14,22 @@ import { WorkflowProgress } from './components/header/WorkflowProgress'
 
 function App() {
   const state = useAnalyze()
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="grid min-h-screen grid-rows-[auto_1fr_auto] bg-background xl:h-screen xl:overflow-hidden">
+      <a
+        href="#workspace"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
+      >
+        Skip to workspace
+      </a>
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-[1760px] items-center justify-between gap-3 px-4 lg:px-6">
-          <a className="flex min-w-0 items-center gap-3 text-foreground no-underline" href="#workspace" aria-label="GBIF Workbench workspace">
+          <a className="flex min-w-0 items-center gap-2 text-foreground no-underline" href="#workspace" aria-label="GBIF Workbench home">
+            <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-md bg-primary">
+              <img src="/favicon.svg" alt="" className="size-8" aria-hidden="true" />
+            </span>
             <span className="min-w-0">
               <strong className="block truncate text-sm font-semibold">GBIF Workbench</strong>
               <span className="block truncate text-xs text-muted-foreground">Pre-download research triage</span>
@@ -31,38 +42,83 @@ function App() {
             <Button variant="ghost" size="sm" asChild>
               <a href="#method">Method</a>
             </Button>
-            <Button variant="ghost" size="sm" asChild>
-              <a href="#exports">Exports</a>
+            <Button variant="ghost" size="sm" asChild={state.workflow ? true : false} disabled={!state.workflow}>
+              {state.workflow ? <a href="#exports">Exports</a> : <span aria-disabled="true" title="Run analysis first to enable Exports">Exports</span>}
             </Button>
           </nav>
-          <Button type="button" onClick={state.analyze} disabled={state.isBusy || !state.question.trim()} size="sm">
-            {state.isBusy ? <Loader2 className="animate-spin" /> : <Play />}
-            Start plan
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              onClick={state.analyze}
+              disabled={state.isBusy || !state.question.trim()}
+              size="sm"
+              title={state.question.trim() ? 'Run live GBIF analysis on this question' : 'Type a research question to enable'}
+            >
+              {state.isBusy ? <Loader2 className="animate-spin" /> : <Play />}
+              {state.isBusy ? 'Analyzing…' : 'Analyze study'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              aria-label={mobileNavOpen ? 'Close navigation' : 'Open navigation'}
+              aria-expanded={mobileNavOpen}
+              aria-controls="mobile-nav"
+              onClick={() => setMobileNavOpen((value) => !value)}
+            >
+              {mobileNavOpen ? <X /> : <Menu />}
+            </Button>
+          </div>
         </div>
+        {mobileNavOpen && (
+          <nav id="mobile-nav" className="border-t bg-background px-4 py-2 md:hidden" aria-label="Mobile navigation">
+            <div className="mx-auto flex max-w-[1760px] flex-col gap-1">
+              <Button variant="ghost" size="sm" asChild className="justify-start" onClick={() => setMobileNavOpen(false)}>
+                <a href="#workspace">Workspace</a>
+              </Button>
+              <Button variant="ghost" size="sm" asChild className="justify-start" onClick={() => setMobileNavOpen(false)}>
+                <a href="#method">Method</a>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild={state.workflow ? true : false}
+                disabled={!state.workflow}
+                className="justify-start"
+                onClick={() => setMobileNavOpen(false)}
+              >
+                {state.workflow ? <a href="#exports">Exports</a> : <span aria-disabled="true">Exports</span>}
+              </Button>
+            </div>
+          </nav>
+        )}
       </header>
 
-      <main id="workspace" className="mx-auto flex w-full max-w-[1760px] flex-col px-4 py-4 lg:px-6 xl:h-[calc(100vh-4rem)] xl:overflow-hidden" aria-busy={state.isBusy}>
-        <section className="mb-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,420px)] xl:shrink-0">
-          <div className="space-y-2">
-            <h1 className="max-w-4xl text-2xl font-semibold tracking-normal text-foreground md:text-3xl">
-              Scope a GBIF study before downloading data.
-            </h1>
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
-              Turn a biodiversity research question into GBIF filters, live availability checks, claim triage, and reproducible workflow exports.
-            </p>
+      <main id="workspace" className="mx-auto flex w-full max-w-[1760px] min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 lg:px-6" aria-busy={state.isBusy}>
+        <section className="mb-4 grid shrink-0 gap-4">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
+            <div className="space-y-2">
+              <h1 className="max-w-4xl text-2xl font-semibold tracking-normal text-foreground md:text-3xl">
+                Scope a GBIF study before downloading data.
+              </h1>
+              <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
+                Turn a biodiversity research question into GBIF filters, live availability checks, claim triage, and reproducible workflow exports.
+              </p>
+            </div>
+            <StatusCard status={state.status} preview={state.preview} topRisk={state.topRisk} />
           </div>
-          <StatusCard status={state.status} preview={state.preview} topRisk={state.topRisk} />
           <WorkflowProgress status={state.status} question={state.question} intent={state.intent} preview={state.preview} workflow={state.workflow} />
         </section>
 
-        <section className="grid gap-4 xl:min-h-0 xl:flex-1 xl:grid-cols-[390px_minmax(0,1fr)]">
+        <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden xl:flex-row">
           <div
             data-pane="scope"
             aria-label="Study scope controls"
             tabIndex={0}
-            className="space-y-4 rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pb-4 xl:pr-2"
+            className="flex min-h-0 flex-col gap-4 overflow-hidden rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 xl:h-full xl:w-[390px] xl:shrink-0"
           >
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 pb-4" data-pane-scroll>
             <QuestionCard
               question={state.question}
               draftTaxon={state.draftTaxon}
@@ -73,6 +129,8 @@ function App() {
               draftSkillLevel={state.draftSkillLevel}
               preferredLanguage={state.preferredLanguage}
               isBusy={state.isBusy}
+              hasStaleResults={state.hasResults && !state.isBusy}
+              onClearResults={state.clearResults}
               onQuestionChange={state.changeQuestion}
               onDemoSelect={state.selectDemoPrompt}
               onTaxonChange={state.setDraftTaxon}
@@ -82,7 +140,6 @@ function App() {
               onSpatialResolutionChange={state.setDraftSpatialResolution}
               onSkillLevelChange={state.setDraftSkillLevel}
               onPreferredLanguageChange={state.setPreferredLanguage}
-              onInterpret={state.interpretScope}
               onAnalyze={state.analyze}
             />
 
@@ -90,7 +147,13 @@ function App() {
               <Alert variant="destructive">
                 <AlertTriangle className="col-start-1 row-span-2 mt-0.5 size-4" />
                 <AlertTitle>Analysis failed</AlertTitle>
-                <AlertDescription>{state.error}</AlertDescription>
+                <AlertDescription>
+                  <p>{state.error}</p>
+                  <p className="mt-2 text-sm">Check the question text and try again. If the issue persists, the GBIF Workbench backend may be temporarily unavailable.</p>
+                  <Button type="button" variant="outline" size="sm" className="mt-3" onClick={state.analyze}>
+                    Retry analysis
+                  </Button>
+                </AlertDescription>
               </Alert>
             )}
 
@@ -102,14 +165,16 @@ function App() {
               onRefresh={() => state.rerunEditedScope()}
               isBusy={state.isBusy}
             />
+            </div>
           </div>
 
           <div
             data-pane="results"
             aria-label="Results and generated workflow"
             tabIndex={0}
-            className="grid min-w-0 gap-4 rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pb-4 xl:pr-2 2xl:grid-cols-[minmax(0,1.05fr)_minmax(430px,0.95fr)]"
+            className="flex min-h-0 flex-col overflow-hidden rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 xl:h-full xl:min-w-0 xl:flex-1"
           >
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto pr-1 pb-4 2xl:grid-cols-[minmax(0,1.05fr)_minmax(430px,0.95fr)]" data-pane-scroll>
             <ResultOverview preview={state.preview} triage={state.triage} workflow={state.workflow} />
             <PreviewSection preview={state.preview} />
             <TriageSection
@@ -127,9 +192,13 @@ function App() {
               setActiveQueryTab={state.setActiveQueryTab}
             />
             <MethodSection />
+            </div>
           </div>
         </section>
       </main>
+      <footer className="shrink-0 border-t bg-background/95 px-4 py-3 text-center text-xs leading-5 text-muted-foreground lg:px-6">
+        GBIF Workbench is an independent research tool for working with GBIF-mediated data. It is not an official GBIF service.
+      </footer>
     </div>
   )
 }

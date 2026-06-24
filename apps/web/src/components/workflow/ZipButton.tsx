@@ -9,10 +9,10 @@ export function ZipButton({ workflow, query }: { workflow: WorkflowPackage; quer
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   return (
-    <div className="flex min-w-0 justify-end">
+    <div className="flex flex-col items-end gap-1">
       <Button
         type="button"
-        variant="outline"
+        variant="default"
         size="sm"
         className="w-auto"
         disabled={loading}
@@ -31,11 +31,11 @@ export function ZipButton({ workflow, query }: { workflow: WorkflowPackage; quer
         }}
       >
         {loading ? <Loader2 className="animate-spin" /> : <FileArchive />}
-        Download ZIP
+        {loading ? 'Bundling files…' : 'Download everything (.zip)'}
       </Button>
       {error && (
-        <p className="mt-1 text-xs leading-5 text-destructive" role="alert">
-          ZIP export failed. {error}
+        <p className="text-xs leading-5 text-destructive" role="alert">
+          ZIP export failed: {error}
         </p>
       )}
     </div>

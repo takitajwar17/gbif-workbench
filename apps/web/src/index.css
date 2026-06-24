@@ -58,6 +58,11 @@
     scroll-behavior: smooth;
   }
 
+  html,
+  body {
+    height: 100%;
+  }
+
   body {
     @apply m-0 min-h-screen min-w-80 bg-background text-foreground antialiased;
     font-family: var(--font-sans);
@@ -77,4 +82,31 @@
     color: #ffffff;
     background: var(--primary);
   }
+
+  /* Make the inner scroll panes feel right on touch + trackpad */
+  [data-pane-scroll] {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+}
+
+/* Hide scrollbars everywhere — scrolling still works, just no visible bar */
+*,
+*::before,
+*::after {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
 }

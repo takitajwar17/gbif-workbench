@@ -38,11 +38,11 @@ export function TriageSection({
   return (
     <Card className="min-w-0">
       <CardHeader>
-        <SectionTitle icon={<ShieldAlert />} title="Triage and workflow" description="Claim support, risks, filters, and exportable code." />
+        <SectionTitle icon={<ShieldAlert />} title="Support verdict and exports" description="Can GBIF support this study, what to watch for, and the generated R / Python / SQL workflow." />
       </CardHeader>
       <CardContent>
         {triage && preview && workflow && query ? (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <SupportPanel triage={triage} />
             <RiskPanel risks={triage.risks} />
             <WorkflowPanel
@@ -60,7 +60,7 @@ export function TriageSection({
             />
           </div>
         ) : (
-          <EmptyState title="Awaiting triage" body="GBIF Workbench will classify supported, conditional, exploratory, and unsupported claims after live analysis." />
+          <EmptyState title="Awaiting triage" body="After you run the analysis, GBIF Workbench will classify your study as supported, conditional, exploratory, or unsupported, then surface risks and a one-click workflow export." />
         )}
       </CardContent>
     </Card>

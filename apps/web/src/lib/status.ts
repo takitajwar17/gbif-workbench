@@ -1,3 +1,4 @@
+import { formatNumber } from './format'
 import type { DataPreview, Risk } from './types'
 
 // Status enum + helpers for the global workflow state machine. Kept separate
@@ -8,30 +9,32 @@ export type Status = 'idle' | 'interpreting' | 'previewing' | 'ready' | 'error'
 export type StepState = 'done' | 'current' | 'pending'
 
 const STATUS_DOT_MAP: Record<Status, string> = {
-  idle: 'bg-muted-foreground',
-  interpreting: 'bg-amber-500',
-  previewing: 'bg-amber-500',
-  ready: 'bg-primary',
+  idle: 'bg-muted-foreground/40',
+  interpreting: 'bg-amber-500 animate-pulse',
+  previewing: 'bg-amber-500 animate-pulse',
+  ready: 'bg-emerald-500',
   error: 'bg-destructive',
 }
 
 export function statusText(status: Status, preview: DataPreview | null, topRisk?: Risk) {
-  if (status === 'interpreting') return 'Interpreting study scope'
-  if (status === 'previewing') return 'Running OpenAI and GBIF analysis'
+  if (status === 'interpreting') return 'Reading your question…'
+  if (status === 'previewing') return 'Querying GBIF and assessing risks…'
   if (status === 'error') return 'Analysis failed'
-  if (status === 'ready' && topRisk) return `${preview?.counts.withUsableCoordinates.toLocaleString()} usable records · ${topRisk.level.toLowerCase()} ${topRisk.title.toLowerCase()}`
-  if (status === 'ready' && preview) return `${preview.counts.withUsableCoordinates.toLocaleString()} usable records · workflow ready`
+  if (status === 'ready' && topRisk && preview) {
+    return `${formatNumber(preview.counts.withUsableCoordinates)} usable records · top risk: ${topRisk.title}`
+  }
+  if (status === 'ready' && preview) return `${formatNumber(preview.counts.withUsableCoordinates)} usable records · workflow ready`
   return 'Ready to analyze'
 }
 
 export function statusDotClass(status: Status) {
-  return STATUS_DOT_MAP[status] ?? 'bg-muted-foreground'
+  return STATUS_DOT_MAP[status] ?? 'bg-muted-foreground/40'
 }
 
 export function stepStateClass(state: StepState) {
-  if (state === 'done') return 'bg-emerald-50 text-emerald-950'
-  if (state === 'current') return 'bg-accent text-accent-foreground'
-  return 'bg-background text-muted-foreground'
+  if (state === 'done') return 'bg-emerald-50 text-emerald-950 ring-1 ring-emerald-200'
+  if (state === 'current') return 'bg-accent text-accent-foreground ring-1 ring-primary/30'
+  return 'bg-background text-muted-foreground ring-1 ring-border'
 }
 
 export function stepStateLabel(state: StepState) {

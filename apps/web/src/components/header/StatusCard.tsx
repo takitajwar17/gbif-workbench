@@ -8,11 +8,19 @@ export function StatusCard({ status, preview, topRisk }: { status: Status; previ
   return (
     <Card className="self-end" role="status" aria-live="polite">
       <CardContent className="flex items-start gap-3 p-4">
-        <span className={`mt-1 size-2.5 shrink-0 rounded-full ${statusDotClass(status)}`} />
+        <span className={`mt-1 size-2.5 shrink-0 rounded-full ring-2 ring-background ${statusDotClass(status)}`} />
         <div className="min-w-0">
           <p className="text-sm font-medium">{statusText(status, preview, topRisk)}</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {status === 'ready' && preview ? `${formatNumber(preview.counts.total)} matching records in the current preview.` : 'Live GBIF previews are generated only after analysis runs.'}
+            {status === 'ready' && preview
+              ? `${formatNumber(preview.counts.total)} matching records in the current preview.`
+              : status === 'interpreting'
+                ? 'Reading your question and extracting scope. This usually takes a few seconds.'
+                : status === 'previewing'
+                  ? 'Querying GBIF and classifying risks. May take 5–15 seconds on first run.'
+                  : status === 'error'
+                    ? 'Something went wrong. Try the retry button below the error message.'
+                    : 'Live GBIF previews are generated only after analysis runs.'}
           </p>
         </div>
       </CardContent>

@@ -16,11 +16,12 @@ export function numberOrNull(value: string) {
 }
 
 export function formatNumber(value: number) {
+  if (!Number.isFinite(value)) return '—'
   return new Intl.NumberFormat().format(Math.round(value))
 }
 
 export function formatShare(value: number, total: number) {
-  if (!total) return 'No matching records'
+  if (!total) return '0% of matches'
   return `${new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(value / total)} of matches`
 }
 
@@ -68,4 +69,19 @@ export async function writeClipboard(text: string) {
   textarea.select()
   document.execCommand('copy')
   textarea.remove()
+}
+
+export function friendlyError(message: string, fallback: string): string {
+  if (!message) return fallback
+  // Map common network / API errors to user-friendly copy.
+  if (/failed to fetch|networkerror|network request failed/i.test(message)) {
+    return 'Could not reach the GBIF Workbench backend. Check your connection and try again.'
+  }
+  if (/status 5\d\d/i.test(message)) {
+    return 'The GBIF Workbench backend hit a temporary error. Please retry in a moment.'
+  }
+  if (/status 4\d\d/i.test(message)) {
+    return `Request rejected by the backend: ${message}`
+  }
+  return message
 }
