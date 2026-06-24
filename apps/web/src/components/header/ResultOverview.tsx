@@ -15,30 +15,41 @@ export function ResultOverview({ preview, triage, workflow }: { preview: DataPre
 
   return (
     <Card className="min-w-0 2xl:col-span-2">
-      <CardContent className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h2 className="text-base font-semibold">What GBIF Workbench found</h2>
             {topRisk && <Badge variant={riskBadgeVariant(topRisk.level)}>{topRisk.level}</Badge>}
-            {workflow && <Badge variant="success">Exports ready</Badge>}
           </div>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">{triage.support.headline}</p>
-          {topRisk && <p className="mt-1 text-sm leading-6 text-muted-foreground">Top risk: {topRisk.title}</p>}
-        </div>
-        <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
-          <SummaryStat label="Usable records" value={formatNumber(preview.counts.withUsableCoordinates)} />
-          <SummaryStat label="Average readiness" value={`${readinessAverage}/100`} detail={readinessAverage >= 70 ? 'Strong' : readinessAverage >= 40 ? 'Mixed' : 'Weak'} />
-          <SummaryStat label="Suggested next step" value={nextStep} />
-        </div>
-        {workflow && (
-          <div className="xl:col-span-2 flex justify-end">
-            <Button variant="outline" size="sm" asChild>
+          {workflow && (
+            <Button variant="outline" size="sm" asChild className="shrink-0">
               <a href="#exports">
                 Go to exports <ArrowRight />
               </a>
             </Button>
+          )}
+        </div>
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)] xl:items-start">
+          <div className="min-w-0 space-y-2">
+            <p className="text-sm leading-6 text-muted-foreground">{triage.support.headline}</p>
+            {topRisk && (
+              <p className="text-sm leading-6 text-muted-foreground">
+                <span className="font-medium text-foreground">Top risk:</span> {topRisk.title}
+              </p>
+            )}
+            <p className="text-sm leading-6 text-muted-foreground">
+              <span className="font-medium text-foreground">Suggested next step:</span> {nextStep}
+            </p>
           </div>
-        )}
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+            <SummaryStat label="Usable records" value={formatNumber(preview.counts.withUsableCoordinates)} />
+            <SummaryStat
+              label="Average readiness"
+              value={`${readinessAverage}/100`}
+              detail={readinessAverage >= 70 ? 'Strong' : readinessAverage >= 40 ? 'Mixed' : 'Weak'}
+            />
+          </div>
+        </div>
       </CardContent>
     </Card>
   )
