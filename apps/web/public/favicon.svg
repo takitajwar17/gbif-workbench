@@ -3,6 +3,6 @@
   <path d="M13 18.5 24.5 14 39.5 18.5 51 14v31.5L39.5 50 24.5 45.5 13 50V18.5Z" fill="#f7faf8"/>
   <path d="M24.5 14v31.5M39.5 18.5V50" fill="none" stroke="#176f4b" stroke-width="3" stroke-linecap="round" opacity=".35"/>
   <path d="M18 34.5c5.5-4.5 10.8-4.4 16-1.4 4.9 2.8 8.7 2.6 12-1.1" fill="none" stroke="#176f4b" stroke-width="3.2" stroke-linecap="round"/>
-  <circle cx="43" cy="24" r="5" fill="#f59e0b"/>
-  <circle cx="43" cy="24" r="2" fill="#7a3600"/>
+  <path d="M40.8 22c-2.6 0-4.6 2-4.6 4.5 0 3.1 4.6 7.6 4.6 7.6s4.6-4.5 4.6-7.6c0-2.5-2-4.5-4.6-4.5Z" fill="#f59e0b"/>
+  <circle cx="40.8" cy="25.9" r="2" fill="#7a3600"/>
 </svg>
