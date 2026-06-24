@@ -1,11 +1,19 @@
 import { startTransition, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { geoEqualEarth, geoGraticule, geoMercator, geoPath } from 'd3-geo'
+import type { GeoPermissibleObjects, GeoProjection } from 'd3-geo'
+import { feature } from 'topojson-client'
+import type { Feature, FeatureCollection, Geometry, MultiPoint, Polygon } from 'geojson'
+import type { GeometryCollection as TopoGeometryCollection, Topology } from 'topojson-specification'
+import countries110m from 'world-atlas/countries-110m.json'
 import {
   AlertTriangle,
   Braces,
+  Check,
   CheckCircle2,
   ClipboardList,
   Code2,
+  Copy,
   Database,
   ExternalLink,
   FileArchive,
@@ -18,6 +26,7 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
+  SlidersHorizontal,
 } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -49,6 +58,7 @@ import type {
 
 type WorkflowTab = 'r' | 'python' | 'sql' | 'predicate' | 'cleaning' | 'methods' | 'citation' | 'limitations'
 type Status = 'idle' | 'interpreting' | 'previewing' | 'ready' | 'error'
+type StepState = 'done' | 'current' | 'pending'
 
 const ANALYSIS_OPTIONS: { value: AnalysisType; label: string }[] = [
   { value: 'unknown', label: 'Infer automatically' },
@@ -62,6 +72,16 @@ const ANALYSIS_OPTIONS: { value: AnalysisType; label: string }[] = [
 const SPATIAL_OPTIONS = ['Local / fine-scale', 'Country or regional', 'Continental or broad-scale']
 const SKILL_OPTIONS = ['Beginner', 'Intermediate', 'Advanced']
 const CODE_OPTIONS: PreferredLanguage[] = ['Both', 'R', 'Python']
+const WORKFLOW_TAB_LABELS: Record<WorkflowTab, string> = {
+  r: 'R',
+  python: 'Python',
+  sql: 'SQL',
+  predicate: 'Predicate',
+  cleaning: 'Cleaning',
+  methods: 'Methods',
+  citation: 'Citation',
+  limitations: 'Limits',
+}
 
 // Hoisted option lists with the "Infer automatically" sentinel prepended so
 // SelectField consumers receive a stable array reference each render.
@@ -133,6 +153,14 @@ const MARKDOWN_ICON = <FileText />
 const JSON_ICON = <FileJson />
 const HTML_ICON = <Braces />
 const SQL_ICON = <Database />
+const ZOOM_MAP_WIDTH = 960
+const ZOOM_MAP_HEIGHT = 520
+const GLOBAL_MAP_WIDTH = 260
+const GLOBAL_MAP_HEIGHT = 136
+const WORLD_TOPOLOGY = countries110m as unknown as Topology
+const WORLD_OBJECTS = countries110m.objects as { countries: TopoGeometryCollection }
+const WORLD_COUNTRIES = (feature(WORLD_TOPOLOGY, WORLD_OBJECTS.countries) as FeatureCollection<Geometry>).features
+const WORLD_SPHERE = { type: 'Sphere' } as GeoPermissibleObjects
 
 interface StudyPlanResponse {
   intent: StudyIntent
@@ -340,6 +368,7 @@ function App() {
             </p>
           </div>
           <StatusCard status={status} preview={preview} topRisk={topRisk} />
+          <WorkflowProgress status={status} question={question} intent={intent} preview={preview} workflow={workflow} />
         </section>
 
         <section className="grid gap-4 xl:min-h-0 xl:flex-1 xl:grid-cols-[390px_minmax(0,1fr)]">
@@ -396,6 +425,7 @@ function App() {
             tabIndex={0}
             className="grid min-w-0 gap-4 rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pb-4 xl:pr-2 2xl:grid-cols-[minmax(0,1.05fr)_minmax(430px,0.95fr)]"
           >
+            <ResultOverview preview={preview} triage={triage} workflow={workflow} />
             <DataPreviewSection preview={preview} />
             <TriageSection
               triage={triage}
@@ -501,8 +531,19 @@ function StudyIdeaCard({
             rows={7}
             spellCheck
             placeholder="Describe the taxon, place, time period, and analysis you want to run."
-            className="min-h-36 resize-y"
+            className="min-h-32 resize-y"
           />
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+          <Button type="button" onClick={onAnalyze} disabled={isBusy || !question.trim()}>
+            {isBusy ? <Loader2 className="animate-spin" /> : <Search />}
+            Analyze study idea
+          </Button>
+          <Button type="button" variant="secondary" onClick={onInterpret} disabled={isBusy || !question.trim()}>
+            {isBusy ? <Loader2 className="animate-spin" /> : <ClipboardList />}
+            Interpret scope
+          </Button>
         </div>
 
         <div className="grid gap-2" aria-label="Example research prompts">
@@ -516,46 +557,44 @@ function StudyIdeaCard({
           ))}
         </div>
 
-        <Separator />
-
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <TextField id="draft-taxon" label="Taxon" value={draftTaxon} onChange={onTaxonChange} placeholder="Optional taxon override" />
-          <TextField id="draft-region" label="Region" value={draftRegion} onChange={onRegionChange} placeholder="Optional region override" />
-          <TextField id="draft-years" label="Years" value={draftYears} onChange={onYearsChange} placeholder="YYYY-YYYY" />
-          <SelectField id="draft-analysis" label="Analysis" value={draftAnalysis} onValueChange={(value) => onAnalysisChange(value as AnalysisType)} options={ANALYSIS_OPTIONS} />
-          <SelectField
-            id="draft-spatial-scale"
-            label="Spatial scale"
-            value={draftSpatialResolution || 'infer'}
-            onValueChange={(value) => onSpatialResolutionChange(value === 'infer' ? '' : value)}
-            options={SPATIAL_SELECT_OPTIONS}
-          />
-          <SelectField
-            id="draft-skill-level"
-            label="Skill level"
-            value={draftSkillLevel || 'infer'}
-            onValueChange={(value) => onSkillLevelChange(value === 'infer' ? '' : value)}
-            options={SKILL_SELECT_OPTIONS}
-          />
-          <SelectField
-            id="draft-code-output"
-            label="Code output"
-            value={preferredLanguage}
-            onValueChange={(value) => onPreferredLanguageChange(value as PreferredLanguage)}
-            options={CODE_OPTIONS.map((value) => ({ value, label: value }))}
-          />
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-          <Button type="button" variant="secondary" onClick={onInterpret} disabled={isBusy || !question.trim()}>
-            {isBusy ? <Loader2 className="animate-spin" /> : <ClipboardList />}
-            Interpret scope
-          </Button>
-          <Button type="button" onClick={onAnalyze} disabled={isBusy || !question.trim()}>
-            {isBusy ? <Loader2 className="animate-spin" /> : <Search />}
-            Analyze study idea
-          </Button>
-        </div>
+        <details className="group rounded-lg border bg-muted/25 p-3 [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-10 cursor-pointer items-center justify-between gap-3 text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30">
+            <span className="flex items-center gap-2">
+              <SlidersHorizontal className="size-4 text-primary" />
+              Optional scope controls
+            </span>
+            <span className="text-xs text-muted-foreground group-open:hidden">Show</span>
+            <span className="hidden text-xs text-muted-foreground group-open:inline">Hide</span>
+          </summary>
+          <Separator className="my-3" />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <TextField id="draft-taxon" label="Taxon" value={draftTaxon} onChange={onTaxonChange} placeholder="Optional taxon override" />
+            <TextField id="draft-region" label="Region" value={draftRegion} onChange={onRegionChange} placeholder="Optional region override" />
+            <TextField id="draft-years" label="Years" value={draftYears} onChange={onYearsChange} placeholder="YYYY-YYYY" />
+            <SelectField id="draft-analysis" label="Analysis" value={draftAnalysis} onValueChange={(value) => onAnalysisChange(value as AnalysisType)} options={ANALYSIS_OPTIONS} />
+            <SelectField
+              id="draft-spatial-scale"
+              label="Spatial scale"
+              value={draftSpatialResolution || 'infer'}
+              onValueChange={(value) => onSpatialResolutionChange(value === 'infer' ? '' : value)}
+              options={SPATIAL_SELECT_OPTIONS}
+            />
+            <SelectField
+              id="draft-skill-level"
+              label="Skill level"
+              value={draftSkillLevel || 'infer'}
+              onValueChange={(value) => onSkillLevelChange(value === 'infer' ? '' : value)}
+              options={SKILL_SELECT_OPTIONS}
+            />
+            <SelectField
+              id="draft-code-output"
+              label="Code output"
+              value={preferredLanguage}
+              onValueChange={(value) => onPreferredLanguageChange(value as PreferredLanguage)}
+              options={CODE_OPTIONS.map((value) => ({ value, label: value }))}
+            />
+          </div>
+        </details>
       </CardContent>
     </Card>
   )
@@ -647,6 +686,7 @@ function DataPreviewSection({ preview }: { preview: DataPreview | null }) {
 }
 
 function DataPreviewPanel({ preview }: { preview: DataPreview }) {
+  const total = preview.counts.total
   return (
     <div className="space-y-4">
       {preview.warnings.map((warning) => (
@@ -657,10 +697,10 @@ function DataPreviewPanel({ preview }: { preview: DataPreview }) {
       ))}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-2">
-        <Metric label="Matching records" value={formatNumber(preview.counts.total)} />
-        <Metric label="With coordinates" value={formatNumber(preview.counts.withCoordinates)} />
-        <Metric label="Usable coordinates" value={formatNumber(preview.counts.withUsableCoordinates)} />
-        <Metric label="Coordinates + date" value={formatNumber(preview.counts.withCoordinatesAndDate)} />
+        <Metric label="Matching records" value={formatNumber(total)} detail="Current scope" />
+        <Metric label="With coordinates" value={formatNumber(preview.counts.withCoordinates)} detail={formatShare(preview.counts.withCoordinates, total)} />
+        <Metric label="Usable coordinates" value={formatNumber(preview.counts.withUsableCoordinates)} detail={formatShare(preview.counts.withUsableCoordinates, total)} />
+        <Metric label="Coordinates + date" value={formatNumber(preview.counts.withCoordinatesAndDate)} detail={formatShare(preview.counts.withCoordinatesAndDate, total)} />
       </div>
 
       <SpatialCoveragePreview preview={preview} />
@@ -765,29 +805,33 @@ function RiskPanel({ risks }: { risks: Risk[] }) {
         Bias and limitation checks
       </div>
       <div className="space-y-3">
-        {sorted.map((risk) => (
-          <RiskCard key={`${risk.category}-${risk.title}`} risk={risk} />
+        {sorted.map((risk, index) => (
+          <RiskCard key={`${risk.category}-${risk.title}`} risk={risk} defaultOpen={index < 2} />
         ))}
       </div>
     </section>
   )
 }
 
-function RiskCard({ risk }: { risk: Risk }) {
+function RiskCard({ risk, defaultOpen }: { risk: Risk; defaultOpen?: boolean }) {
   return (
-    <article className={`rounded-lg border p-4 ${riskToneClass(risk.level)}`}>
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="text-sm font-semibold leading-5">{risk.title}</h3>
-        <Badge variant={riskBadgeVariant(risk.level)}>{risk.level}</Badge>
-      </div>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{risk.explanation}</p>
-      <dl className="mt-3 space-y-2 text-sm">
+    <details open={defaultOpen} className={`group rounded-lg border p-4 ${riskToneClass(risk.level)} [&_summary::-webkit-details-marker]:hidden`}>
+      <summary className="cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30">
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="text-sm font-semibold leading-5">{risk.title}</h3>
+          <Badge variant={riskBadgeVariant(risk.level)}>{risk.level}</Badge>
+        </div>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{risk.explanation}</p>
+        <span className="mt-2 inline-block text-xs font-medium text-muted-foreground group-open:hidden">Show evidence and mitigation</span>
+        <span className="mt-2 hidden text-xs font-medium text-muted-foreground group-open:inline-block">Hide evidence and mitigation</span>
+      </summary>
+      <dl className="mt-3 space-y-2 border-t pt-3 text-sm">
         <RiskDetail title="Evidence" body={risk.evidence} />
         <RiskDetail title="Why it matters" body={risk.whyItMatters} />
         <RiskDetail title="Mitigation" body={risk.recommendedMitigation} />
         {risk.relatedWorkflowStep && <RiskDetail title="Workflow step" body={risk.relatedWorkflowStep} />}
       </dl>
-    </article>
+    </details>
   )
 }
 
@@ -817,9 +861,12 @@ function WorkflowPanel({
 
   return (
     <section id="exports" className="space-y-4">
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        <Code2 className="size-4 text-primary" />
-        Generated workflow
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Code2 className="size-4 text-primary" />
+          Generated workflow
+        </div>
+        <CopyButton content={tabContent} label={`Copy ${WORKFLOW_TAB_LABELS[activeTab]}`} />
       </div>
       <FilterSummary query={query} recommendedFilters={triage.recommendedFilters} />
       <div className="flex flex-wrap gap-2">
@@ -837,14 +884,11 @@ function WorkflowPanel({
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WorkflowTab)}>
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-          <TabsTrigger value="r">R</TabsTrigger>
-          <TabsTrigger value="python">Python</TabsTrigger>
-          <TabsTrigger value="sql">SQL</TabsTrigger>
-          <TabsTrigger value="predicate">Predicate</TabsTrigger>
-          <TabsTrigger value="cleaning">Cleaning</TabsTrigger>
-          <TabsTrigger value="methods">Methods</TabsTrigger>
-          <TabsTrigger value="citation">Citation</TabsTrigger>
-          <TabsTrigger value="limitations">Limits</TabsTrigger>
+          {Object.entries(WORKFLOW_TAB_LABELS).map(([value, label]) => (
+            <TabsTrigger key={value} value={value}>
+              {label}
+            </TabsTrigger>
+          ))}
         </TabsList>
         <TabsContent value={activeTab}>
           <ScrollArea className="h-[360px] rounded-lg border bg-neutral-950">
@@ -941,6 +985,68 @@ function StatusCard({ status, preview, topRisk }: { status: Status; preview: Dat
   )
 }
 
+function WorkflowProgress({
+  status,
+  question,
+  intent,
+  preview,
+  workflow,
+}: {
+  status: Status
+  question: string
+  intent: StudyIntent | null
+  preview: DataPreview | null
+  workflow: WorkflowPackage | null
+}) {
+  const steps: { label: string; state: StepState }[] = [
+    { label: 'Question', state: question.trim() ? 'done' : 'current' },
+    { label: 'Scope', state: intent ? 'done' : question.trim() || status === 'interpreting' ? 'current' : 'pending' },
+    { label: 'Preview', state: preview ? 'done' : intent || status === 'previewing' ? 'current' : 'pending' },
+    { label: 'Export', state: workflow ? 'done' : preview ? 'current' : 'pending' },
+  ]
+
+  return (
+    <div className="grid gap-2 rounded-lg border bg-card p-2 sm:grid-cols-4 lg:col-span-2" aria-label="Workflow progress">
+      {steps.map((step, index) => (
+        <div key={step.label} className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${stepStateClass(step.state)}`}>
+          <span className="grid size-6 shrink-0 place-items-center rounded-full border bg-background text-xs font-medium">
+            {step.state === 'done' ? <Check className="size-3.5" /> : index + 1}
+          </span>
+          <span className="min-w-0 truncate font-medium">{step.label}</span>
+          <span className="ml-auto text-xs text-muted-foreground">{stepStateLabel(step.state)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ResultOverview({ preview, triage, workflow }: { preview: DataPreview | null; triage: TriageResult | null; workflow: WorkflowPackage | null }) {
+  if (!preview || !triage) return null
+  const topRisk = triage.risks.toSorted((a, b) => riskWeight(b.level) - riskWeight(a.level))[0]
+  const readinessAverage = Math.round((triage.readiness.spatial + triage.readiness.temporal + triage.readiness.taxonomic + triage.readiness.dataType) / 4)
+
+  return (
+    <Card className="min-w-0 2xl:col-span-2">
+      <CardContent className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold">Decision summary</h2>
+            {topRisk && <Badge variant={riskBadgeVariant(topRisk.level)}>{topRisk.level}</Badge>}
+            {workflow && <Badge variant="success">Exports ready</Badge>}
+          </div>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">{triage.support.headline}</p>
+          {topRisk && <p className="mt-1 text-sm leading-6 text-muted-foreground">Top risk: {topRisk.title}</p>}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
+          <SummaryStat label="Usable records" value={formatNumber(preview.counts.withUsableCoordinates)} />
+          <SummaryStat label="Readiness" value={`${readinessAverage}/100`} />
+          <SummaryStat label="Next step" value={triage.nextSteps[0] ?? 'Review generated workflow'} />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function SectionTitle({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
   return (
     <div className="flex items-start gap-3">
@@ -1010,11 +1116,21 @@ function SelectField({
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="rounded-lg border bg-card p-4">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <strong className="mt-1 block text-2xl font-semibold tracking-normal">{value}</strong>
+      {detail && <span className="mt-1 block text-xs leading-5 text-muted-foreground">{detail}</span>}
+    </div>
+  )
+}
+
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-muted/30 px-3 py-2">
+      <span className="block text-xs font-medium text-muted-foreground">{label}</span>
+      <strong className="mt-1 block line-clamp-2 text-sm leading-5">{value}</strong>
     </div>
   )
 }
@@ -1056,8 +1172,10 @@ function RiskDetail({ title, body }: { title: string; body: string }) {
 
 function SpatialCoveragePreview({ preview }: { preview: DataPreview }) {
   const summary = useMemo(() => summarizeSpatialPreview(preview), [preview])
+  const zoomMap = useMemo(() => (summary ? createZoomMapData(summary) : null), [summary])
+  const globalMap = useMemo(() => (summary ? createGlobalMapData(summary) : null), [summary])
 
-  if (!summary) {
+  if (!summary || !zoomMap || !globalMap) {
     return <EmptyState title="No sample points returned" body="GBIF counts completed, but the sample-record request did not return plottable coordinates." />
   }
 
@@ -1070,7 +1188,7 @@ function SpatialCoveragePreview({ preview }: { preview: DataPreview }) {
             Spatial coverage check
           </div>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-            {summary.interpretation} The plot uses the live preview sample, not the full download.
+            {summary.interpretation} The map uses country outlines and the live preview sample, not the full download.
           </p>
         </div>
         <Badge variant={summary.isConcentrated ? 'warning' : 'success'}>{summary.isConcentrated ? 'Concentrated sample' : 'Broad sample'}</Badge>
@@ -1080,29 +1198,24 @@ function SpatialCoveragePreview({ preview }: { preview: DataPreview }) {
         <div className="rounded-lg border bg-muted/35 p-3">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
             <span>{formatCoordinate(summary.extent.maxLat, 'lat')}</span>
-            <span>Zoomed to sample extent</span>
+            <span>Map view, zoomed to sample extent</span>
           </div>
-          <svg className="block aspect-[16/9] w-full" viewBox="0 0 100 56" role="img" aria-label={`${summary.points.length} sampled occurrence points plotted in their local extent`}>
-            <rect x="0" y="0" width="100" height="56" rx="3" className="fill-background" />
-            {[20, 40, 60, 80].map((x) => (
-              <line key={`zoom-x-${x}`} x1={x} x2={x} y1="0" y2="56" className="stroke-border" strokeWidth="0.22" />
+          <svg className="block aspect-[16/9] w-full rounded-md bg-background" viewBox={`0 0 ${ZOOM_MAP_WIDTH} ${ZOOM_MAP_HEIGHT}`} role="img" aria-label={`${summary.points.length} sampled occurrence points plotted on a geographic map`}>
+            <rect x="0" y="0" width={ZOOM_MAP_WIDTH} height={ZOOM_MAP_HEIGHT} rx="12" className="fill-background" />
+            {zoomMap.countryPaths.map((path) => (
+              <path key={path.key} d={path.d} className="fill-muted stroke-border" strokeWidth="1.2" />
             ))}
-            {[14, 28, 42].map((y) => (
-              <line key={`zoom-y-${y}`} y1={y} y2={y} x1="0" x2="100" className="stroke-border" strokeWidth="0.22" />
-            ))}
-            {summary.zoomedPoints.map((point, index) => (
-              <circle
-                key={`${point.x}-${point.y}-${index}`}
-                cx={point.x}
-                cy={point.y}
-                r={point.hasHighUncertainty ? 1.8 : 1.35}
-                className={point.hasHighUncertainty ? 'fill-amber-600 opacity-75' : 'fill-primary opacity-75'}
-              />
+            {zoomMap.graticulePath && <path d={zoomMap.graticulePath} fill="none" className="stroke-border opacity-70" strokeWidth="0.8" />}
+            {zoomMap.points.map((point, index) => (
+              <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r={point.hasHighUncertainty ? 8 : 6} className={point.hasHighUncertainty ? 'fill-amber-600 opacity-85' : 'fill-primary opacity-85'} />
             ))}
           </svg>
-          <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span>{formatCoordinate(summary.extent.minLon, 'lon')}</span>
-            <span>{formatCoordinate(summary.extent.maxLon, 'lon')}</span>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1"><i className="block size-2 rounded-full bg-primary" />Preview record</span>
+              <span className="inline-flex items-center gap-1"><i className="block size-2 rounded-full bg-amber-600" />High uncertainty</span>
+            </div>
+            <span>{formatCoordinate(summary.extent.minLon, 'lon')} to {formatCoordinate(summary.extent.maxLon, 'lon')}</span>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">{formatCoordinate(summary.extent.minLat, 'lat')}</div>
         </div>
@@ -1110,23 +1223,13 @@ function SpatialCoveragePreview({ preview }: { preview: DataPreview }) {
         <div className="space-y-3">
           <div className="rounded-lg border bg-muted/35 p-3">
             <div className="mb-2 text-xs font-medium text-muted-foreground">Global locator</div>
-            <svg className="block aspect-[100/52] w-full" viewBox="0 0 100 52" role="img" aria-label="Sample extent shown on a global coordinate grid">
-              <rect x="0" y="0" width="100" height="52" rx="3" className="fill-background" />
-              {[20, 40, 60, 80].map((x) => (
-                <line key={`global-x-${x}`} x1={x} x2={x} y1="0" y2="52" className="stroke-border" strokeWidth="0.22" />
+            <svg className="block aspect-[100/52] w-full rounded-md bg-background" viewBox={`0 0 ${GLOBAL_MAP_WIDTH} ${GLOBAL_MAP_HEIGHT}`} role="img" aria-label="Sample extent shown on a global map">
+              <rect x="0" y="0" width={GLOBAL_MAP_WIDTH} height={GLOBAL_MAP_HEIGHT} rx="8" className="fill-background" />
+              {globalMap.graticulePath && <path d={globalMap.graticulePath} fill="none" className="stroke-border opacity-60" strokeWidth="0.45" />}
+              {globalMap.countryPaths.map((path) => (
+                <path key={path.key} d={path.d} className="fill-muted stroke-border" strokeWidth="0.45" />
               ))}
-              {[13, 26, 39].map((y) => (
-                <line key={`global-y-${y}`} y1={y} y2={y} x1="0" x2="100" className="stroke-border" strokeWidth="0.22" />
-              ))}
-              <rect
-                x={summary.globalBox.x}
-                y={summary.globalBox.y}
-                width={summary.globalBox.width}
-                height={summary.globalBox.height}
-                rx="1"
-                className="fill-primary/20 stroke-primary"
-                strokeWidth="0.6"
-              />
+              {globalMap.extentPath && <path d={globalMap.extentPath} className="fill-primary/20 stroke-primary" strokeWidth="1.2" />}
             </svg>
           </div>
           <div className="grid gap-2 text-sm">
@@ -1199,12 +1302,6 @@ function summarizeSpatialPreview(preview: DataPreview) {
     interpretation: isConcentrated
       ? `Preview points are clustered across about ${formatDegrees(latSpan)} latitude by ${formatDegrees(lonSpan)} longitude. ${topCountryText}.`
       : `Preview points cover about ${formatDegrees(latSpan)} latitude by ${formatDegrees(lonSpan)} longitude. ${topCountryText}.`,
-    zoomedPoints: points.map((point) => ({
-      x: 6 + ((point.lon - extent.minLon) / lonSpan) * 88,
-      y: 6 + ((extent.maxLat - point.lat) / latSpan) * 44,
-      hasHighUncertainty: (point.coordinateUncertaintyInMeters ?? 0) > 10000,
-    })),
-    globalBox: createGlobalExtentBox(extent),
   }
 }
 
@@ -1212,21 +1309,117 @@ function hasValidPoint(point: OccurrencePoint) {
   return Number.isFinite(point.lat) && Number.isFinite(point.lon) && point.lat >= -90 && point.lat <= 90 && point.lon >= -180 && point.lon <= 180
 }
 
-function createGlobalExtentBox(extent: { minLat: number; maxLat: number; minLon: number; maxLon: number }) {
-  const minX = ((extent.minLon + 180) / 360) * 100
-  const maxX = ((extent.maxLon + 180) / 360) * 100
-  const minY = ((90 - extent.maxLat) / 180) * 52
-  const maxY = ((90 - extent.minLat) / 180) * 52
-  const rawWidth = Math.max(0.1, maxX - minX)
-  const rawHeight = Math.max(0.1, maxY - minY)
-  const width = Math.max(1.8, rawWidth)
-  const height = Math.max(1.8, rawHeight)
+type SpatialSummary = Exclude<ReturnType<typeof summarizeSpatialPreview>, null>
+
+function createZoomMapData(summary: SpatialSummary) {
+  const paddedExtent = padExtent(summary.extent, 0.5)
+  const projection = geoMercator().fitExtent(
+    [
+      [24, 24],
+      [ZOOM_MAP_WIDTH - 24, ZOOM_MAP_HEIGHT - 24],
+    ],
+    createExtentPointFeature(paddedExtent),
+  )
+  const path = geoPath(projection)
+  const graticule = geoGraticule().step([chooseGraticuleStep(paddedExtent.maxLon - paddedExtent.minLon), chooseGraticuleStep(paddedExtent.maxLat - paddedExtent.minLat)])()
+
   return {
-    x: clamp(minX - (width - rawWidth) / 2, 0, 100 - width),
-    y: clamp(minY - (height - rawHeight) / 2, 0, 52 - height),
-    width,
-    height,
+    countryPaths: createCountryPaths(path),
+    graticulePath: path(graticule),
+    points: projectOccurrencePoints(summary.points, projection),
   }
+}
+
+function createGlobalMapData(summary: SpatialSummary) {
+  const projection = geoEqualEarth().fitExtent(
+    [
+      [6, 6],
+      [GLOBAL_MAP_WIDTH - 6, GLOBAL_MAP_HEIGHT - 6],
+    ],
+    WORLD_SPHERE,
+  )
+  const path = geoPath(projection)
+  const graticule = geoGraticule().step([60, 30])()
+  return {
+    countryPaths: createCountryPaths(path),
+    graticulePath: path(graticule),
+    extentPath: path(createExtentFeature(padExtent(summary.extent, 0.25))),
+  }
+}
+
+function createCountryPaths(path: ReturnType<typeof geoPath>) {
+  return WORLD_COUNTRIES.map((country, index) => {
+    const d = path(country)
+    return d ? { key: `${country.id ?? index}`, d } : null
+  }).filter((item): item is { key: string; d: string } => Boolean(item))
+}
+
+function projectOccurrencePoints(points: OccurrencePoint[], projection: GeoProjection) {
+  return points
+    .map((point) => {
+      const projected = projection([point.lon, point.lat])
+      if (!projected) return null
+      return {
+        x: projected[0],
+        y: projected[1],
+        hasHighUncertainty: (point.coordinateUncertaintyInMeters ?? 0) > 10000,
+      }
+    })
+    .filter((point): point is { x: number; y: number; hasHighUncertainty: boolean } => Boolean(point))
+}
+
+function createExtentFeature(extent: { minLat: number; maxLat: number; minLon: number; maxLon: number }): Feature<Polygon> {
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [extent.minLon, extent.minLat],
+          [extent.maxLon, extent.minLat],
+          [extent.maxLon, extent.maxLat],
+          [extent.minLon, extent.maxLat],
+          [extent.minLon, extent.minLat],
+        ],
+      ],
+    },
+  }
+}
+
+function createExtentPointFeature(extent: { minLat: number; maxLat: number; minLon: number; maxLon: number }): Feature<MultiPoint> {
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'MultiPoint',
+      coordinates: [
+        [extent.minLon, extent.minLat],
+        [extent.maxLon, extent.maxLat],
+      ],
+    },
+  }
+}
+
+function padExtent(extent: { minLat: number; maxLat: number; minLon: number; maxLon: number }, multiplier: number) {
+  const latSpan = Math.max(0.05, extent.maxLat - extent.minLat)
+  const lonSpan = Math.max(0.05, extent.maxLon - extent.minLon)
+  const latPadding = Math.max(0.35, latSpan * multiplier)
+  const lonPadding = Math.max(0.35, lonSpan * multiplier)
+  return {
+    minLat: clamp(extent.minLat - latPadding, -85, 85),
+    maxLat: clamp(extent.maxLat + latPadding, -85, 85),
+    minLon: clamp(extent.minLon - lonPadding, -180, 180),
+    maxLon: clamp(extent.maxLon + lonPadding, -180, 180),
+  }
+}
+
+function chooseGraticuleStep(span: number) {
+  if (span <= 3) return 0.5
+  if (span <= 8) return 1
+  if (span <= 20) return 5
+  if (span <= 60) return 10
+  return 30
 }
 
 function formatCoordinate(value: number, axis: 'lat' | 'lon') {
@@ -1282,7 +1475,9 @@ function BarList({
         {buckets.length ? (
           buckets.map((bucket) => (
             <div key={bucket.name} className="grid grid-cols-[minmax(76px,1.2fr)_minmax(70px,1fr)_auto] items-center gap-2 text-xs">
-              <span className="truncate text-muted-foreground">{formatter(bucket.name)}</span>
+              <span className="truncate text-muted-foreground" title={formatter(bucket.name)}>
+                {formatter(bucket.name)}
+              </span>
               <div className="h-2 overflow-hidden rounded-full bg-muted">
                 <i className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(4, (bucket.count / max) * 100)}%` }} />
               </div>
@@ -1335,6 +1530,25 @@ function ExportButton({
     <Button type="button" variant="outline" size="sm" onClick={() => downloadBlob(filename, new Blob([content], { type: withCharset(type) }))}>
       {icon}
       {label}
+    </Button>
+  )
+}
+
+function CopyButton({ content, label }: { content: string; label: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={async () => {
+        await writeClipboard(content)
+        setCopied(true)
+        window.setTimeout(() => setCopied(false), 1400)
+      }}
+    >
+      {copied ? <Check /> : <Copy />}
+      {copied ? 'Copied' : label}
     </Button>
   )
 }
@@ -1393,6 +1607,11 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat().format(Math.round(value))
 }
 
+function formatShare(value: number, total: number) {
+  if (!total) return 'No matching records'
+  return `${new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(value / total)} of matches`
+}
+
 function formatIssueName(value: string) {
   return value
     .toLowerCase()
@@ -1420,6 +1639,18 @@ function statusText(status: Status, preview: DataPreview | null, topRisk?: Risk)
 
 function statusDotClass(status: Status) {
   return STATUS_DOT_MAP[status] ?? 'bg-muted-foreground'
+}
+
+function stepStateClass(state: StepState) {
+  if (state === 'done') return 'bg-emerald-50 text-emerald-950'
+  if (state === 'current') return 'bg-accent text-accent-foreground'
+  return 'bg-background text-muted-foreground'
+}
+
+function stepStateLabel(state: StepState) {
+  if (state === 'done') return 'Done'
+  if (state === 'current') return 'Current'
+  return 'Pending'
 }
 
 function riskWeight(level: string) {
@@ -1451,6 +1682,23 @@ function downloadBlob(filename: string, blob: Blob) {
 
 function withCharset(type: string) {
   return type.includes('charset=') || type === 'application/zip' ? type : `${type};charset=utf-8`
+}
+
+async function writeClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  document.execCommand('copy')
+  textarea.remove()
 }
 
 export default App
