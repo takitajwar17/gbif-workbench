@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { startTransition, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   AlertTriangle,
@@ -63,6 +63,17 @@ const SPATIAL_OPTIONS = ['Local / fine-scale', 'Country or regional', 'Continent
 const SKILL_OPTIONS = ['Beginner', 'Intermediate', 'Advanced']
 const CODE_OPTIONS: PreferredLanguage[] = ['Both', 'R', 'Python']
 
+// Hoisted option lists with the "Infer automatically" sentinel prepended so
+// SelectField consumers receive a stable array reference each render.
+const SPATIAL_SELECT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'infer', label: 'Infer automatically' },
+  ...SPATIAL_OPTIONS.map((value) => ({ value, label: value })),
+]
+const SKILL_SELECT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'infer', label: 'Infer automatically' },
+  ...SKILL_OPTIONS.map((value) => ({ value, label: value })),
+]
+
 const DEMO_PROMPTS = [
   {
     label: 'Range shifts',
@@ -77,6 +88,51 @@ const DEMO_PROMPTS = [
     question: 'Can GBIF-mediated occurrence records support a species distribution model for Panthera leo in Africa?',
   },
 ]
+
+// Hoisted lookup tables. The functions below used to allocate fresh objects /
+// run if-else ladders on every call; converting to Map-style lookups means
+// each table is built once at module load and every subsequent call is O(1).
+const RISK_WEIGHT_MAP: Record<Risk['level'], number> = {
+  BLOCKING: 5,
+  HIGH: 4,
+  MODERATE: 3,
+  UNKNOWN: 2,
+  LOW: 1,
+}
+const RISK_TONE_MAP: Record<Risk['level'], string> = {
+  BLOCKING: 'border-red-200 bg-red-50/70',
+  HIGH: 'border-red-200 bg-red-50/70',
+  MODERATE: 'border-amber-200 bg-amber-50/70',
+  UNKNOWN: 'border-amber-200 bg-amber-50/70',
+  LOW: 'border-emerald-200 bg-emerald-50/70',
+}
+const RISK_BADGE_VARIANT_MAP: Record<Risk['level'], 'destructive' | 'warning' | 'success'> = {
+  BLOCKING: 'destructive',
+  HIGH: 'destructive',
+  MODERATE: 'warning',
+  UNKNOWN: 'warning',
+  LOW: 'success',
+}
+const SUPPORT_TONE_MAP: Record<'good' | 'caution' | 'danger', string> = {
+  good: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+  caution: 'border-amber-200 bg-amber-50 text-amber-950',
+  danger: 'border-red-200 bg-red-50 text-red-950',
+}
+const STATUS_DOT_MAP: Record<Status, string> = {
+  idle: 'bg-muted-foreground',
+  interpreting: 'bg-amber-500',
+  previewing: 'bg-amber-500',
+  ready: 'bg-primary',
+  error: 'bg-destructive',
+}
+
+// Hoisted export-button icons. Capturing each icon as a single React element at
+// module scope lets ExportButton receive a stable prop reference across renders
+// instead of a freshly-constructed element on every parent render.
+const MARKDOWN_ICON = <FileText />
+const JSON_ICON = <FileJson />
+const HTML_ICON = <Braces />
+const SQL_ICON = <Database />
 
 interface StudyPlanResponse {
   intent: StudyIntent
@@ -171,13 +227,19 @@ function App() {
 
     try {
       const result = await requestStudyPlan({ ...payload, question: trimmedQuestion })
-      setIntent(result.intent)
-      setTaxon(result.taxon)
-      setQuery(result.query)
-      setPreview(result.preview)
-      setTriage(result.triage)
-      setWorkflow(result.workflow)
+      // Mark the status dot as urgent so the header updates immediately, then
+      // defer the bulk of the result tree (intent, preview, triage, workflow,
+      // query, taxon) so React can keep the spinner and input responsive
+      // while the heavy result subtree commits.
       setStatus('ready')
+      startTransition(() => {
+        setIntent(result.intent)
+        setTaxon(result.taxon)
+        setQuery(result.query)
+        setPreview(result.preview)
+        setTriage(result.triage)
+        setWorkflow(result.workflow)
+      })
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'GBIF Workbench analysis failed.'
       setError(`${message} No research plan was generated.`)
@@ -466,14 +528,14 @@ function StudyIdeaCard({
             label="Spatial scale"
             value={draftSpatialResolution || 'infer'}
             onValueChange={(value) => onSpatialResolutionChange(value === 'infer' ? '' : value)}
-            options={[{ value: 'infer', label: 'Infer automatically' }, ...SPATIAL_OPTIONS.map((value) => ({ value, label: value }))]}
+            options={SPATIAL_SELECT_OPTIONS}
           />
           <SelectField
             id="draft-skill-level"
             label="Skill level"
             value={draftSkillLevel || 'infer'}
             onValueChange={(value) => onSkillLevelChange(value === 'infer' ? '' : value)}
-            options={[{ value: 'infer', label: 'Infer automatically' }, ...SKILL_OPTIONS.map((value) => ({ value, label: value }))]}
+            options={SKILL_SELECT_OPTIONS}
           />
           <SelectField
             id="draft-code-output"
@@ -794,13 +856,13 @@ function WorkflowPanel({
       </Tabs>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <ExportButton icon={<FileText />} label="Markdown" filename="gbif-workbench-plan.md" content={workflow.markdownReport} />
-        <ExportButton icon={<FileJson />} label="JSON" filename="gbif-workbench-plan.json" content={workflow.jsonPlan} type="application/json" />
-        <ExportButton icon={<Braces />} label="HTML" filename="gbif-workbench-report.html" content={workflow.htmlReport} type="text/html" />
-        <ExportButton icon={<FileText />} label="Quarto" filename="gbif-workbench-workflow.qmd" content={createQuartoNotebook(workflow)} />
-        <ExportButton icon={<Database />} label="SQL" filename="gbif-occurrence-cube.sql" content={workflow.sqlCode} />
-        <ExportButton icon={<FileJson />} label="Predicate" filename="gbif-download-request.json" content={workflow.downloadRequestJson} type="application/json" />
-        <ExportButton icon={<FileJson />} label="Jupyter" filename="gbif-workbench-workflow.ipynb" content={createJupyterNotebook(workflow)} type="application/json" />
+        <ExportButton icon={MARKDOWN_ICON} label="Markdown" filename="gbif-workbench-plan.md" content={workflow.markdownReport} />
+        <ExportButton icon={JSON_ICON} label="JSON" filename="gbif-workbench-plan.json" content={workflow.jsonPlan} type="application/json" />
+        <ExportButton icon={HTML_ICON} label="HTML" filename="gbif-workbench-report.html" content={workflow.htmlReport} type="text/html" />
+        <ExportButton icon={MARKDOWN_ICON} label="Quarto" filename="gbif-workbench-workflow.qmd" content={createQuartoNotebook(workflow)} />
+        <ExportButton icon={SQL_ICON} label="SQL" filename="gbif-occurrence-cube.sql" content={workflow.sqlCode} />
+        <ExportButton icon={JSON_ICON} label="Predicate" filename="gbif-download-request.json" content={workflow.downloadRequestJson} type="application/json" />
+        <ExportButton icon={JSON_ICON} label="Jupyter" filename="gbif-workbench-workflow.ipynb" content={createJupyterNotebook(workflow)} type="application/json" />
         <ZipButton workflow={workflow} />
       </div>
     </section>
@@ -1102,19 +1164,26 @@ function summarizeSpatialPreview(preview: DataPreview) {
   const points = preview.samplePoints.filter(hasValidPoint).slice(0, 220)
   if (!points.length) return null
 
-  const lats = points.map((point) => point.lat)
-  const lons = points.map((point) => point.lon)
-  const extent = {
-    minLat: Math.min(...lats),
-    maxLat: Math.max(...lats),
-    minLon: Math.min(...lons),
-    maxLon: Math.max(...lons),
+  // Single pass to compute lat/lon extent and collect distinct country codes.
+  // The Math.min/max spread form would allocate two extra arrays of length N
+  // and could blow the argument limit for very large samples; a single loop
+  // is both faster and safer.
+  let minLat = points[0].lat
+  let maxLat = points[0].lat
+  let minLon = points[0].lon
+  let maxLon = points[0].lon
+  const countrySet = new Set<string>()
+  for (const point of points) {
+    if (point.lat < minLat) minLat = point.lat
+    else if (point.lat > maxLat) maxLat = point.lat
+    if (point.lon < minLon) minLon = point.lon
+    else if (point.lon > maxLon) maxLon = point.lon
+    if (point.country) countrySet.add(point.country)
   }
+  const extent = { minLat, maxLat, minLon, maxLon }
   const latSpan = Math.max(0.01, extent.maxLat - extent.minLat)
   const lonSpan = Math.max(0.01, extent.maxLon - extent.minLon)
-  const countryLabels = [...new Set(points.map((point) => point.country).filter((country): country is string => Boolean(country)))]
-    .sort()
-    .map((country) => countryLabel(country))
+  const countryLabels = Array.from(countrySet).sort().map((country) => countryLabel(country))
   const topCountry = preview.facets.countries[0]
   const topCountryText =
     topCountry && preview.counts.total
@@ -1350,32 +1419,23 @@ function statusText(status: Status, preview: DataPreview | null, topRisk?: Risk)
 }
 
 function statusDotClass(status: Status) {
-  if (status === 'ready') return 'bg-primary'
-  if (status === 'interpreting' || status === 'previewing') return 'bg-amber-500'
-  if (status === 'error') return 'bg-destructive'
-  return 'bg-muted-foreground'
+  return STATUS_DOT_MAP[status] ?? 'bg-muted-foreground'
 }
 
 function riskWeight(level: string) {
-  return { BLOCKING: 5, HIGH: 4, MODERATE: 3, UNKNOWN: 2, LOW: 1 }[level as keyof Record<string, number>] ?? 0
+  return RISK_WEIGHT_MAP[level as Risk['level']] ?? 0
 }
 
 function riskToneClass(level: Risk['level']) {
-  if (level === 'BLOCKING' || level === 'HIGH') return 'border-red-200 bg-red-50/70'
-  if (level === 'MODERATE' || level === 'UNKNOWN') return 'border-amber-200 bg-amber-50/70'
-  return 'border-emerald-200 bg-emerald-50/70'
+  return RISK_TONE_MAP[level]
 }
 
 function riskBadgeVariant(level: Risk['level']) {
-  if (level === 'BLOCKING' || level === 'HIGH') return 'destructive'
-  if (level === 'MODERATE' || level === 'UNKNOWN') return 'warning'
-  return 'success'
+  return RISK_BADGE_VARIANT_MAP[level]
 }
 
 function supportToneClass(tone: 'good' | 'caution' | 'danger') {
-  if (tone === 'good') return 'border-emerald-200 bg-emerald-50 text-emerald-950'
-  if (tone === 'caution') return 'border-amber-200 bg-amber-50 text-amber-950'
-  return 'border-red-200 bg-red-50 text-red-950'
+  return SUPPORT_TONE_MAP[tone]
 }
 
 function downloadBlob(filename: string, blob: Blob) {

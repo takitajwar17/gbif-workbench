@@ -54,9 +54,23 @@ app.post('/api/study-plan', async (request, response) => {
   }
 
   try {
-    const interpreted = await interpretStudyIntent({ question, overrides })
+    // Start the LLM intent interpretation in parallel with a seed GBIF taxon
+    // resolution that uses the user's draft overrides (taxon text + rank only).
+    // If the LLM later rewrites the taxon, we re-resolve against the GBIF
+    // Backbone. This overlaps the slowest single call (LLM) with a fast GBIF
+    // round trip when the user has typed a concrete taxon name.
+    const [interpreted, seedTaxon] = await Promise.all([
+      interpretStudyIntent({ question, overrides }),
+      resolveTaxon(seedIntentFromOverrides(overrides)),
+    ])
     const intent = normalizeIntent(interpreted.data)
-    const taxon = await resolveTaxon(intent)
+    const seedName = String(seedTaxon.sourceName || '').trim().toLowerCase()
+    const llmName = String(intent.taxonQuery || intent.taxonText || '').trim().toLowerCase()
+    // If the LLM produced a taxon name that differs from the seed (including
+    // the empty-seed case where the user did not fill the draft taxon field),
+    // re-resolve against the GBIF Backbone so downstream steps use the
+    // LLM-chosen canonical name.
+    const taxon = llmName && seedName !== llmName ? await resolveTaxon(intent) : seedTaxon
     const query = buildGbifQuery(intent, taxon)
     const preview = await previewGbifData(intent, query)
     const assessment = await assessStudy({ intent, taxon, query, preview })
@@ -152,4 +166,34 @@ function normalizeReadiness(value) {
   if (score > 0 && score <= 5) return Math.round(score * 20)
   if (score > 5 && score <= 10) return Math.round(score * 10)
   return Math.max(0, Math.min(100, Math.round(score)))
+}
+
+function seedIntentFromOverrides(overrides) {
+  // Build a minimal intent shape that resolveTaxon() can consume before the
+  // LLM returns. Only taxon-related overrides matter here; everything else is
+  // filled with safe defaults. If the user did not provide a taxon, the seed
+  // produces the same NO_TAXON_QUERY result as resolveTaxon would produce
+  // against an empty intent.
+  const taxonText = typeof overrides?.taxonText === 'string' ? overrides.taxonText.trim() : ''
+  const taxonQuery = typeof overrides?.taxonQuery === 'string' ? overrides.taxonQuery.trim() : taxonText
+  const taxonomicRank = typeof overrides?.taxonomicRank === 'string' ? overrides.taxonomicRank.trim() : ''
+  return {
+    question: '',
+    taxonText,
+    taxonQuery,
+    taxonomicRank,
+    regionText: '',
+    countries: [],
+    startYear: null,
+    endYear: null,
+    analysisType: 'unknown',
+    claimType: '',
+    requiredData: [],
+    possibleRequiredExtraData: [],
+    spatialResolution: '',
+    skillLevel: '',
+    preferredLanguage: 'Both',
+    confidence: 0,
+    ambiguities: [],
+  }
 }

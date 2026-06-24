@@ -1,7 +1,10 @@
-import JSZip from 'jszip'
 import type { WorkflowPackage } from './types'
 
 export async function createExportZip(workflow: WorkflowPackage) {
+  // Lazy-load jszip so its ~100KB stays out of the initial bundle. Only the
+  // ZIP export button triggers this path; the other seven exports build
+  // blobs directly and never need JSZip.
+  const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   zip.file('README.md', exportReadme())
   zip.file('study_plan.md', workflow.markdownReport)

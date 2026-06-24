@@ -2,8 +2,11 @@ const GBIF_API = 'https://api.gbif.org/v1'
 const OCCURRENCE_API = `${GBIF_API}/occurrence/search`
 const OCCURRENCE_WEB = 'https://www.gbif.org/occurrence/search'
 const CACHE_TTL_MS = 1000 * 60 * 30
+const CACHE_MAX_ENTRIES = Number(process.env.GBIF_CACHE_MAX_ENTRIES || 500)
 const GBIF_TIMEOUT_MS = Number(process.env.GBIF_TIMEOUT_MS || 90000)
 
+// Tiny LRU+TTL cache. Map preserves insertion order, so the first key is the
+// least-recently-used entry. We re-insert on every hit to mark it as fresh.
 const cache = new Map()
 
 export async function resolveTaxon(intent) {
@@ -382,12 +385,16 @@ function toOccurrencePoints(results) {
 }
 
 function summarizeCoordinateUncertainty(points) {
-  const values = points
-    .map((point) => point.coordinateUncertaintyInMeters)
-    .filter((value) => typeof value === 'number' && Number.isFinite(value))
-    .sort((a, b) => a - b)
+  const values = []
+  let over10km = 0
+  for (const point of points) {
+    const value = point.coordinateUncertaintyInMeters
+    if (typeof value !== 'number' || !Number.isFinite(value)) continue
+    values.push(value)
+    if (value > 10000) over10km += 1
+  }
+  values.sort((a, b) => a - b)
   const median = values.length ? values[Math.floor(values.length / 2)] : null
-  const over10km = values.filter((value) => value > 10000).length
   return {
     sampledRecords: points.length,
     recordsWithUncertainty: values.length,
@@ -399,7 +406,13 @@ function summarizeCoordinateUncertainty(points) {
 async function fetchJson(input) {
   const url = typeof input === 'string' ? input : input.toString()
   const cached = cache.get(url)
-  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) return cached.value
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    // Re-insert so this entry becomes the most-recently-used.
+    cache.delete(url)
+    cache.set(url, cached)
+    return cached.value
+  }
+  if (cached) cache.delete(url)
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), GBIF_TIMEOUT_MS)
@@ -408,6 +421,7 @@ async function fetchJson(input) {
     if (!response.ok) throw new Error(`GBIF request failed: ${response.status} ${response.statusText}`)
     const value = await response.json()
     cache.set(url, { fetchedAt: Date.now(), value })
+    evictCacheIfNeeded()
     return value
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
@@ -417,6 +431,14 @@ async function fetchJson(input) {
     throw new Error(`GBIF request failed before response: ${url}: ${message}`)
   } finally {
     clearTimeout(timer)
+  }
+}
+
+function evictCacheIfNeeded() {
+  while (cache.size > CACHE_MAX_ENTRIES) {
+    const oldestKey = cache.keys().next().value
+    if (oldestKey === undefined) break
+    cache.delete(oldestKey)
   }
 }
 

@@ -1,7 +1,13 @@
+import crypto from 'node:crypto'
+
 const OPENAI_API_BASE = 'https://api.openai.com/v1'
 const DEFAULT_MODEL = 'gpt-5.4-mini'
+const ASSESSMENT_CACHE_TTL_MS = 1000 * 60 * 10
+const ASSESSMENT_CACHE_MAX_ENTRIES = Number(process.env.OPENAI_ASSESSMENT_CACHE_MAX_ENTRIES || 50)
+const ASSESSMENT_CACHE_ENABLED = process.env.OPENAI_ASSESSMENT_CACHE !== 'false'
 
 let fallbackModelPromise = null
+const assessmentCache = new Map()
 
 export async function interpretStudyIntent({ question, overrides }) {
   const model = process.env.OPENAI_MODEL_INTENT || process.env.OPENAI_MODEL || DEFAULT_MODEL
@@ -36,12 +42,19 @@ export async function interpretStudyIntent({ question, overrides }) {
 
 export async function assessStudy({ intent, taxon, query, preview }) {
   const model = process.env.OPENAI_MODEL_ASSESSMENT || process.env.OPENAI_MODEL || DEFAULT_MODEL
-  return createStructuredJson({
+  const effort = process.env.OPENAI_REASONING_EFFORT_ASSESSMENT || 'low'
+  const cacheKey = ASSESSMENT_CACHE_ENABLED ? buildAssessmentCacheKey({ model, effort, intent, taxon, query, preview }) : null
+  if (cacheKey) {
+    const cached = readAssessmentCache(cacheKey)
+    if (cached) return cached
+  }
+
+  const result = await createStructuredJson({
     model,
     schemaName: 'gbif_study_assessment',
     schema: assessmentSchema,
     instructions: assessmentInstructions,
-    effort: process.env.OPENAI_REASONING_EFFORT_ASSESSMENT || 'low',
+    effort,
     maxOutputTokens: 12000,
     input: [
       {
@@ -70,6 +83,9 @@ export async function assessStudy({ intent, taxon, query, preview }) {
       },
     ],
   })
+
+  if (cacheKey) writeAssessmentCache(cacheKey, result)
+  return result
 }
 
 async function createStructuredJson({ model, schemaName, schema, instructions, input, effort, maxOutputTokens }) {
@@ -212,6 +228,71 @@ function scoreModel(id) {
 function throwOpenAIError(error, status) {
   const message = error?.error?.message || error?.message || `OpenAI request failed with status ${status}`
   throw new Error(`OpenAI request failed: ${message}`)
+}
+
+// LRU+TTL cache for assessStudy. The assessment prompt is grounded in the
+// live GBIF preview, so the cache key folds in the inputs that actually
+// change the answer: the model and reasoning effort, the resolved taxonKey,
+// the query filter set, the analysis type, the preview counts/facets, and
+// the preview's fetchedAt minute. Re-running the same scope within the TTL
+// returns the prior structured output without calling OpenAI again.
+function buildAssessmentCacheKey({ model, effort, intent, taxon, query, preview }) {
+  if (!intent || !taxon || !query || !preview) return null
+  const payload = {
+    model,
+    effort,
+    taxonKey: taxon.taxonKey ?? null,
+    analysisType: intent.analysisType || 'unknown',
+    claimType: intent.claimType || '',
+    preferredLanguage: intent.preferredLanguage || 'Both',
+    apiParams: stableStringify(query.apiParams || {}),
+    counts: preview.counts || {},
+    yearFacets: topBucketCounts(preview.facets?.years, 50),
+    countryFacets: topBucketCounts(preview.facets?.countries, 20),
+    basisFacets: topBucketCounts(preview.facets?.basisOfRecord, 12),
+    datasetFacets: topBucketCounts(preview.facets?.datasets, 10),
+    issueFacets: topBucketCounts(preview.facets?.issues, 12),
+    samplingEventHits: preview.samplingEvents?.datasetHits ?? 0,
+    sampledPoints: Array.isArray(preview.samplePoints) ? preview.samplePoints.length : 0,
+    fetchedAtMinute: (preview.fetchedAt || '').slice(0, 16),
+  }
+  return crypto.createHash('sha256').update(stableStringify(payload)).digest('hex')
+}
+
+function topBucketCounts(facets, limit) {
+  if (!Array.isArray(facets)) return []
+  return facets
+    .slice(0, limit)
+    .map((bucket) => ({ name: String(bucket.name ?? ''), count: Number(bucket.count ?? 0) }))
+}
+
+function stableStringify(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  const keys = Object.keys(value).sort()
+  return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`
+}
+
+function readAssessmentCache(key) {
+  const entry = assessmentCache.get(key)
+  if (!entry) return null
+  if (Date.now() - entry.fetchedAt >= ASSESSMENT_CACHE_TTL_MS) {
+    assessmentCache.delete(key)
+    return null
+  }
+  // Re-insert so this becomes the most-recently-used entry.
+  assessmentCache.delete(key)
+  assessmentCache.set(key, entry)
+  return entry.value
+}
+
+function writeAssessmentCache(key, value) {
+  assessmentCache.set(key, { fetchedAt: Date.now(), value })
+  while (assessmentCache.size > ASSESSMENT_CACHE_MAX_ENTRIES) {
+    const oldest = assessmentCache.keys().next().value
+    if (oldest === undefined) break
+    assessmentCache.delete(oldest)
+  }
 }
 
 const analysisTypes = [
