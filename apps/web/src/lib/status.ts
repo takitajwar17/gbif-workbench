@@ -6,7 +6,7 @@ import type { DataPreview, Risk } from './types'
 // (e.g. workflow-progress badges, status cards) without pulling in JSX.
 
 export type Status = 'idle' | 'interpreting' | 'previewing' | 'ready' | 'error'
-export type StepState = 'done' | 'current' | 'pending'
+export type StepState = 'done' | 'current' | 'loading' | 'pending'
 
 const STATUS_DOT_MAP: Record<Status, string> = {
   idle: 'bg-muted-foreground/40',
@@ -33,12 +33,14 @@ export function statusDotClass(status: Status) {
 
 export function stepStateClass(state: StepState) {
   if (state === 'done') return 'bg-emerald-50 text-emerald-950 ring-1 ring-emerald-200'
+  if (state === 'loading') return 'bg-accent text-accent-foreground ring-1 ring-primary/30'
   if (state === 'current') return 'bg-accent text-accent-foreground ring-1 ring-primary/30'
   return 'bg-background text-muted-foreground ring-1 ring-border'
 }
 
 export function stepStateLabel(state: StepState) {
   if (state === 'done') return 'Done'
+  if (state === 'loading') return 'In progress'
   if (state === 'current') return 'Current'
   return 'Pending'
 }
