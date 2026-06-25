@@ -23,9 +23,40 @@ function validateRequestBody(body) {
   if (!question) {
     return { ok: false, error: 'A research question is required.' }
   }
+  if (question.length > 2000) {
+    return {
+      ok: false,
+      error: `Research questions must be 2000 characters or fewer. Yours is ${question.length}.`,
+    }
+  }
+  if (detectPromptInjection(question)) {
+    return {
+      ok: false,
+      error:
+        'This question looks like an attempt to override GBIF Workbench instructions. ' +
+        'Please rephrase as a plain biodiversity research question.',
+    }
+  }
   const overrides =
     body?.overrides && typeof body.overrides === 'object' ? body.overrides : {}
   return { ok: true, value: { question, overrides } }
+}
+
+// Mirror of the client-side prompt-injection guard in
+// `apps/web/src/lib/queryGuard.ts`. Kept as a small standalone regex
+// list here so the server can reject obvious attacks without making a
+// network round-trip to OpenAI. Keep the two in sync when adding new
+// patterns.
+function detectPromptInjection(question) {
+  const patterns = [
+    /\b(ignore|disregard|forget|skip|override|bypass)\b[\s\S]{0,40}\b(previous|prior|above|earlier|system|original|all|the)\b[\s\S]{0,40}\b(instruction|prompt|directive|rule|context|message|guideline)/i,
+    /(^|\n)\s*(system|assistant|user)\s*:\s*[^\n]{20,}/i,
+    /\b(you are now|act as|pretend to be|roleplay as|behave as|be a|become a)\b[\s\S]{0,80}\b(developer|admin|root|jailbreak|DAN|unrestricted|uncensored|evil|hacker|model|chatbot|ai|assistant)\b/i,
+    /\b(reveal|show|print|output|repeat|tell me|share|dump|leak|expose)\b[\s\S]{0,40}\b(your|the|my)\b[\s\S]{0,40}\b(system|hidden|secret|internal|original|full)\b[\s\S]{0,40}\b(prompt|instruction|message|context|rules?)\b/i,
+    /<\s*\|?\s*(system|assistant|im_start|instruction|prompt)\s*\|?\s*>/i,
+    /\b(jailbreak|DAN mode|developer mode|god mode|sudo)\b/i,
+  ]
+  return patterns.some((pattern) => pattern.test(question))
 }
 
 export const validateParseIntentBody = validateRequestBody

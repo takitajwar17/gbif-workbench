@@ -19,20 +19,25 @@ import {
 } from '@/constants/options'
 import type { AnalysisType, PreferredLanguage, StudyIntent, TaxonResolution } from '@/lib/types'
 
-// Inline editable summary of the interpreted scope. Each row swaps a
-// read-only label for an inline editor on click of the pencil. Edits are
-// LOCAL: they merge into the parent intent and surface a "press Re-run"
-// badge. The user must press Re-run (or Analyze study) to apply.
+// Inline editable summary of the interpreted scope.
 //
-// IMPORTANT: this component does NOT cancel editing on blur. The previous
+// Each row has a compact label on the left and either a value or a
+// control on the right. Three rows (Analysis, Spatial, Skill) and the
+// Code output row render an always-editable Radix Select — picking an
+// item commits immediately and sets scopeDirty = true. The four text
+// rows (Taxon, Region, Countries, Years) keep the click-pencil pattern
+// because their values are free-form and would otherwise blow up the
+// row height.
+//
+// IMPORTANT: text row editors do NOT cancel on blur. The original
 // implementation did, which killed Radix Select portals the moment they
 // opened (Radix renders the dropdown in a portal outside this DOM tree,
 // so focus leaving the row's wrapper fired onBlur and unmounted the
 // trigger before the user could pick an item). Now editors stay open
-// until the user explicitly commits (Enter, Done button, or item
-// selection) or cancels (Escape, Cancel button).
+// until the user explicitly commits (Enter, Done button) or cancels
+// (Escape, Cancel button).
 
-type Row = 'taxon' | 'region' | 'countries' | 'years' | 'analysis' | 'spatial' | 'skill'
+type TextRow = 'taxon' | 'region' | 'countries' | 'years'
 
 export function InterpretedScopeSummary({
   intent,
@@ -55,7 +60,7 @@ export function InterpretedScopeSummary({
   onPreferredLanguageChange: (value: PreferredLanguage) => void
   onRerun: () => void
 }) {
-  const [editing, setEditing] = useState<Row | null>(null)
+  const [editing, setEditing] = useState<TextRow | null>(null)
   const [showAmbiguities, setShowAmbiguities] = useState(false)
 
   function cancel() {
@@ -183,76 +188,40 @@ export function InterpretedScopeSummary({
           )}
         </TextRow>
 
-        <SelectRow
-          id="analysis"
+        <AlwaysSelectRow
+          id="scope-analysis"
           label="Analysis"
-          value={formatAnalysisLabel(intent.analysisType)}
-          editing={editing === 'analysis'}
-          onEdit={() => setEditing('analysis')}
-          onCancel={cancel}
-        >
-          {(commit, cancelEdit) => (
-            <InlineSelectEditor
-              id="scope-analysis"
-              value={intent.analysisType}
-              options={ANALYSIS_OPTIONS.filter((opt) => opt.value !== 'unknown')}
-              placeholder="Auto-detected"
-              onCommit={(next) => {
-                onIntentFieldChange('analysisType', next as AnalysisType)
-                commit()
-              }}
-              onCancel={cancelEdit}
-            />
-          )}
-        </SelectRow>
+          value={intent.analysisType}
+          options={ANALYSIS_OPTIONS.filter((opt) => opt.value !== 'unknown')}
+          placeholder="Auto-detected"
+          matchesOption={matchesOption}
+          formatLabel={formatAnalysisLabel}
+          onChange={(next) => onIntentFieldChange('analysisType', next as AnalysisType)}
+        />
 
-        <SelectRow
-          id="spatial"
+        <AlwaysSelectRow
+          id="scope-spatial"
           label="Spatial"
-          value={formatSpatialLabel(intent.spatialResolution)}
-          editing={editing === 'spatial'}
-          onEdit={() => setEditing('spatial')}
-          onCancel={cancel}
-        >
-          {(commit, cancelEdit) => (
-            <InlineSelectEditor
-              id="scope-spatial"
-              value={matchesOption(intent.spatialResolution, SPATIAL_SELECT_OPTIONS) ? intent.spatialResolution : 'infer'}
-              options={SPATIAL_SELECT_OPTIONS}
-              placeholder="Auto-detected"
-              onCommit={(next) => {
-                onIntentFieldChange('spatialResolution', next === 'infer' ? '' : next)
-                commit()
-              }}
-              onCancel={cancelEdit}
-            />
-          )}
-        </SelectRow>
+          value={intent.spatialResolution}
+          options={SPATIAL_SELECT_OPTIONS}
+          placeholder="Auto-detected"
+          matchesOption={matchesOption}
+          formatLabel={formatSpatialLabel}
+          onChange={(next) => onIntentFieldChange('spatialResolution', next === 'infer' ? '' : next)}
+        />
 
-        <SelectRow
-          id="skill"
+        <AlwaysSelectRow
+          id="scope-skill"
           label="Skill"
-          value={formatSkillLabel(intent.skillLevel)}
-          editing={editing === 'skill'}
-          onEdit={() => setEditing('skill')}
-          onCancel={cancel}
-        >
-          {(commit, cancelEdit) => (
-            <InlineSelectEditor
-              id="scope-skill"
-              value={matchesOption(intent.skillLevel, SKILL_SELECT_OPTIONS, true) ? intent.skillLevel : 'infer'}
-              options={SKILL_SELECT_OPTIONS}
-              placeholder="Auto-detected"
-              onCommit={(next) => {
-                onIntentFieldChange('skillLevel', next === 'infer' ? '' : next)
-                commit()
-              }}
-              onCancel={cancelEdit}
-            />
-          )}
-        </SelectRow>
+          value={intent.skillLevel}
+          options={SKILL_SELECT_OPTIONS}
+          placeholder="Auto-detected"
+          matchesOption={(value, options) => matchesOption(value, options, true)}
+          formatLabel={formatSkillLabel}
+          onChange={(next) => onIntentFieldChange('skillLevel', next === 'infer' ? '' : next)}
+        />
 
-        <div className="flex flex-wrap items-center gap-3 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2">
           <span className="w-24 shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Code output
           </span>
@@ -315,6 +284,7 @@ export function InterpretedScopeSummary({
 }
 
 // One labeled row in the scope summary that edits a free-text field.
+// Pencil stays — the user did not ask to remove it for text rows.
 function TextRow({
   id,
   label,
@@ -333,7 +303,7 @@ function TextRow({
   children: (commit: () => void, cancel: () => void) => React.ReactNode
 }) {
   return (
-    <div className="flex flex-wrap items-start gap-3 px-3 py-2">
+    <div className="flex flex-wrap items-start gap-2 px-3 py-2">
       <Label htmlFor={editing ? `scope-${id}` : undefined} className="w-24 shrink-0 pt-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </Label>
@@ -346,11 +316,11 @@ function TextRow({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-7 shrink-0"
+            className="size-6 shrink-0"
             onClick={onEdit}
             aria-label={`Edit ${label}`}
           >
-            <Pencil className="size-3.5" />
+            <Pencil className="size-3" />
           </Button>
         </>
       )}
@@ -358,48 +328,61 @@ function TextRow({
   )
 }
 
-// One labeled row that edits via a Radix Select dropdown. Children render
-// only while editing, so the Select is freshly mounted each time the row
-// opens — this is what lets the dropdown actually open reliably.
-function SelectRow({
+// Always-editable dropdown row. Mirrors the Code output row: a compact
+// label on the left, a Radix Select on the right. Picking an option
+// commits immediately via onChange. The dropdown still shows the
+// formatted current label even when the LLM returned a free-form value
+// (we map back to "Infer automatically" so the user can opt into a
+// canonical value).
+function AlwaysSelectRow({
   id,
   label,
   value,
-  editing,
-  onEdit,
-  onCancel,
-  children,
+  options,
+  placeholder,
+  matchesOption,
+  formatLabel,
+  onChange,
 }: {
   id: string
   label: string
-  value: string
-  editing: boolean
-  onEdit: () => void
-  onCancel: () => void
-  children: (commit: () => void, cancel: () => void) => React.ReactNode
+  value: string | null | undefined
+  options: { value: string; label: string }[]
+  placeholder: string
+  matchesOption: (
+    value: string | null | undefined,
+    options: { value: string; label: string }[],
+  ) => boolean
+  formatLabel: (value: string | null | undefined) => string
+  onChange: (next: string) => void
 }) {
+  // Radix's <SelectValue> matches items case-sensitively. When the LLM
+  // returns a value whose case differs from the option list (e.g.
+  // "intermediate" vs the option "Intermediate"), we still want the
+  // dropdown to display the canonical option. Find the option whose
+  // value matches (case-insensitively when matchesOption says so) and
+  // hand Radix the canonical case.
+  const canonicalOption = value
+    ? options.find((opt) => matchesOption(value, [opt]))
+    : null
+  const dropdownValue = canonicalOption ? canonicalOption.value : 'infer'
   return (
-    <div className="flex flex-wrap items-start gap-3 px-3 py-2">
-      <Label htmlFor={editing ? `scope-${id}` : undefined} className="w-24 shrink-0 pt-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+      <Label htmlFor={id} className="w-24 shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </Label>
-      {editing ? (
-        <div className="min-w-0 flex-1">{children(onCancel, onCancel)}</div>
-      ) : (
-        <>
-          <span className="min-w-0 flex-1 break-words text-sm text-foreground">{value}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-7 shrink-0"
-            onClick={onEdit}
-            aria-label={`Edit ${label}`}
-          >
-            <Pencil className="size-3.5" />
-          </Button>
-        </>
-      )}
+      <Select value={dropdownValue} onValueChange={onChange}>
+        <SelectTrigger id={id} className="h-8 w-full min-w-0 flex-1 text-sm" aria-label={`${label} (${formatLabel(value)})`}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }
@@ -558,83 +541,6 @@ function InlineYearsEditor({
         className="size-8 shrink-0"
         onClick={onCancel}
         aria-label="Cancel years edit"
-      >
-        <X className="size-4" />
-      </Button>
-    </div>
-  )
-}
-
-// Inline Radix Select editor. The Select is mounted fresh each time the
-// user clicks the pencil, so the portal can open without an outer onBlur
-// tearing it down. Selecting an item commits and closes the row;
-// pressing Escape (anywhere on the document while the editor is mounted)
-// or clicking the X button rolls back — closes without touching the
-// parent.
-function InlineSelectEditor({
-  id,
-  value,
-  options,
-  placeholder,
-  onCommit,
-  onCancel,
-}: {
-  id: string
-  value: string
-  options: { value: string; label: string }[]
-  placeholder: string
-  onCommit: (value: string) => void
-  onCancel: () => void
-}) {
-  const [open, setOpen] = useState(false)
-
-  // Radix's popper swallows Escape on the trigger before our onKeyDown
-  // fires. Listen at the document level so closing the dropdown also
-  // closes the editor row in one keystroke.
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape' && open) {
-        event.preventDefault()
-        setOpen(false)
-        onCancel()
-      }
-    }
-    document.addEventListener('keydown', handleKey, true)
-    return () => document.removeEventListener('keydown', handleKey, true)
-  }, [open, onCancel])
-
-  return (
-    <div className="flex items-center gap-2">
-      <Select
-        value={value}
-        open={open}
-        onOpenChange={setOpen}
-        onValueChange={(next) => {
-          setOpen(false)
-          onCommit(next)
-        }}
-      >
-        <SelectTrigger id={id} className="h-8 w-full text-sm" aria-label={placeholder}>
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="size-8 shrink-0"
-        onClick={() => {
-          setOpen(false)
-          onCancel()
-        }}
-        aria-label={`Cancel ${placeholder} edit`}
       >
         <X className="size-4" />
       </Button>

@@ -115,7 +115,7 @@ function App() {
             data-pane="scope"
             aria-label="Study scope controls"
             tabIndex={0}
-            className="flex min-h-0 flex-col gap-4 overflow-hidden rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 xl:h-full xl:w-[390px] xl:shrink-0"
+            className="flex min-h-0 flex-col gap-4 overflow-hidden rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 xl:h-full xl:w-[420px] xl:shrink-0"
           >
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 pb-4" data-pane-scroll>
             <QuestionCard

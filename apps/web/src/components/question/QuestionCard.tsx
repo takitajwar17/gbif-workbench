@@ -49,7 +49,7 @@ export function QuestionCard({
     if (charCount < 40) return 'Try adding more context — a place, time window, and analysis type help the most.'
     if (charCount > 600) return 'Long questions are fine, but the model focuses best on the first few sentences.'
     if (intent) return 'Edit any field in the scope below — press Re-run to apply your changes.'
-    return 'Looks good. The Workbench will auto-interpret and fetch GBIF data as you type.'
+    return 'Looks good. Click Analyze study to run the Workbench on this question.'
   }, [charCount, intent])
 
   const [prompts, setPrompts] = useState(() => pickRandomPrompts(3))
@@ -90,12 +90,6 @@ export function QuestionCard({
             id="question"
             value={question}
             onChange={(event) => onQuestionChange(event.target.value)}
-            onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && canAnalyze && !isBusy) {
-                event.preventDefault()
-                onAnalyzeNow()
-              }
-            }}
             rows={6}
             spellCheck
             placeholder="Example: Are kingfisher populations shifting northward in Europe since 2000?"

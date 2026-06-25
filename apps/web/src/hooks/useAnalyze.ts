@@ -1,5 +1,6 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
 import { friendlyError } from '@/lib/format'
+import { detectOffTopicSentinel, validateResearchQuestion } from '@/lib/queryGuard'
 import type { Status } from '@/lib/status'
 import type { WorkflowGroup } from '@/constants/options'
 import { requestStudyIntent, requestStudyPlan } from '@/components/api/api'
@@ -19,15 +20,17 @@ import type {
 // forwards props; everything stateful lives here so each child component can
 // receive a small, focused slice without prop-drilling through 14 levels.
 //
-// Flow:
-//   type in QuestionCard → debounced 600ms → interpretNow()  (intent only)
-//                         → on intent set → runStudy()        (preview + triage + workflow)
-//   click Analyze study  → analyzeNow()  (runStudy with current intent)
+// Flow (no auto-analysis anywhere — every API call requires an explicit click):
+//   type in QuestionCard → changeQuestion()  (updates the textarea state only;
+//                                              wipes stale results so the user
+//                                              doesn't see data for the wrong question)
+//   click Analyze study  → analyzeNow()  (interpretNow if no intent yet,
+//                                          else runStudy with the existing intent)
 //   edit a scope field   → updateIntentField()  (merge into intent locally;
 //                                                sets scopeDirty so the UI can
 //                                                prompt the user to Re-run)
 //   click Re-run button  → analyzeNow()  (re-runs study with the edited intent)
-//   click demo prompt    → selectDemoPrompt()  (set question + interpretNow)
+//   click demo prompt    → selectDemoPrompt()  (set question text only — no API call)
 //
 // Scope field edits are LOCAL: they merge into intent but do NOT trigger a
 // new study run. The user must press Re-run (or Analyze study) to apply.
@@ -36,8 +39,6 @@ import type {
 //
 // Race protection: every async run increments a `runId`. Stale responses are
 // dropped so a slow interpretation never overwrites a fresh one.
-
-const INTERPRET_DEBOUNCE_MS = 600
 
 export function useAnalyze() {
   const [question, setQuestion] = useState('')
@@ -69,14 +70,10 @@ export function useAnalyze() {
   // Monotonic counter incremented on every async kick-off. Stale responses
   // are discarded by checking this against the value at kick-off time.
   const runIdRef = useRef(0)
-  // Debounce timer for the auto-interpret-on-type flow.
-  const interpretTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   const clearTimers = useCallback(() => {
-    if (interpretTimerRef.current) {
-      clearTimeout(interpretTimerRef.current)
-      interpretTimerRef.current = null
-    }
+    // No debounce timers remain — all analysis is now triggered explicitly
+    // by the Analyze study / Re-run buttons. Kept as a no-op so existing
+    // call sites can stay unchanged.
   }, [])
 
   async function runStudy(payload: StudyPlanRequest, runId: number) {
@@ -115,6 +112,21 @@ export function useAnalyze() {
   async function interpretNow() {
     const trimmed = question.trim()
     if (!trimmed) return
+    const validation = validateResearchQuestion(trimmed)
+    if (!validation.ok) {
+      // Reject early — no API call, no LLM token, no spinner flash.
+      runIdRef.current += 1
+      setIntent(null)
+      setTaxon(null)
+      setQuery(null)
+      setPreview(null)
+      setTriage(null)
+      setWorkflow(null)
+      setError(validation.message)
+      setStatus('error')
+      lastSubmittedRef.current = ''
+      return
+    }
     if (trimmed === lastSubmittedRef.current && intent) return // nothing changed
 
     runIdRef.current += 1
@@ -130,6 +142,21 @@ export function useAnalyze() {
     try {
       const result = await requestStudyIntent({ question: trimmed, overrides: { preferredLanguage } })
       if (runId !== runIdRef.current) return
+      // LLM-side off-topic check: if the model couldn't make sense of the
+      // question as a biodiversity / GBIF data request, it sets a sentinel
+      // ambiguity. Surface that as a friendly rejection instead of feeding
+      // a junk intent into the study pipeline.
+      if (detectOffTopicSentinel(result.intent.ambiguities)) {
+        setIntent(null)
+        setStatus('error')
+        setError(
+          'This question does not look like a GBIF / biodiversity data study. ' +
+            'Try asking where a species occurs, how its range is shifting, what its ' +
+            'GBIF records look like over time, or how abundant it is in a region.',
+        )
+        lastSubmittedRef.current = ''
+        return
+      }
       setIntent(result.intent)
       setStatus('idle')
       // Auto-chain: as soon as the intent is in, fire the full study so the
@@ -147,6 +174,20 @@ export function useAnalyze() {
   async function analyzeNow() {
     const trimmed = question.trim()
     if (!trimmed) return
+    const validation = validateResearchQuestion(trimmed)
+    if (!validation.ok) {
+      runIdRef.current += 1
+      setIntent(null)
+      setTaxon(null)
+      setQuery(null)
+      setPreview(null)
+      setTriage(null)
+      setWorkflow(null)
+      setError(validation.message)
+      setStatus('error')
+      lastSubmittedRef.current = ''
+      return
+    }
     clearTimers()
     if (intent) {
       runIdRef.current += 1
@@ -158,9 +199,10 @@ export function useAnalyze() {
 
   function changeQuestion(value: string) {
     setQuestion(value)
-    // Wipe stale results as soon as the user starts editing — the inline
-    // scope summary will repopulate automatically once the new question is
-    // interpreted.
+    // Wipe stale results as soon as the user starts editing — the previous
+    // run's data no longer matches the question being typed. We do NOT
+    // kick off any analysis here; the user must click Analyze study to
+    // run a new study.
     if (intent || taxon || preview || triage || workflow || error) {
       setIntent(null)
       setTaxon(null)
@@ -172,13 +214,6 @@ export function useAnalyze() {
       setStatus('idle')
       lastSubmittedRef.current = ''
       setScopeDirty(false)
-    }
-    if (interpretTimerRef.current) clearTimeout(interpretTimerRef.current)
-    const trimmed = value.trim()
-    if (trimmed.length >= 6 && trimmed !== lastSubmittedRef.current) {
-      interpretTimerRef.current = setTimeout(() => {
-        interpretNow()
-      }, INTERPRET_DEBOUNCE_MS)
     }
   }
 
