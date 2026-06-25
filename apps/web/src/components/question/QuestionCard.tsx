@@ -141,10 +141,12 @@ export function QuestionCard({
                   onClick={() => onDemoSelect(prompt.question)}
                   aria-label={`Use example: ${prompt.label} — ${prompt.question}`}
                 >
-                  <span className="flex w-full items-start gap-2">
-                    <ClipboardList className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                  <span className="flex w-full gap-2">
+                    <span className="flex size-6 shrink-0 items-center justify-center self-start text-primary [&_svg]:size-4" aria-hidden="true">
+                      <ClipboardList />
+                    </span>
                     <span className="min-w-0">
-                      <span className="block text-sm font-medium">{prompt.label}</span>
+                      <span className="flex h-6 items-center text-sm font-medium">{prompt.label}</span>
                       <span className="mt-1 block text-xs leading-5 text-muted-foreground">{prompt.question}</span>
                     </span>
                   </span>
