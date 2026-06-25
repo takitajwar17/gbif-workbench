@@ -48,7 +48,13 @@ export async function interpretStudyIntent({ question, overrides }) {
 
 export async function assessStudy({ intent, taxon, query, preview }) {
   const model = process.env.OPENAI_MODEL_ASSESSMENT || process.env.OPENAI_MODEL || DEFAULT_MODEL
-  const effort = process.env.OPENAI_REASONING_EFFORT_ASSESSMENT || 'low'
+  // Defaults are tuned for determinism:
+  // - reasoning effort 'medium' gives the LLM enough thinking time to
+  //   produce consistent qualitative judgments without burning extra
+  //   tokens on speculative detail. 'low' produces more variance.
+  // - We do NOT pass `temperature` because reasoning models (gpt-5.x,
+  //   o-series) reject it; reasoning.effort is the supported lever.
+  const effort = process.env.OPENAI_REASONING_EFFORT_ASSESSMENT || 'medium'
   const cacheKey = ASSESSMENT_CACHE_ENABLED ? buildAssessmentCacheKey({ model, effort, intent, taxon, query, preview }) : null
   if (cacheKey) {
     const cached = assessmentCache.get(cacheKey)
@@ -100,6 +106,15 @@ async function createStructuredJson({ model, schemaName, schema, instructions, i
     throw new Error('OPENAI_API_KEY is missing. Add it to apps/web/.env before running GBIF Workbench.')
   }
 
+  // We deliberately do NOT pass `temperature`. Reasoning models
+  // (`o-series`, `gpt-5-series` family — including our default
+  // `gpt-5.4-mini`) reject the `temperature` parameter with
+  // "Unsupported parameter: 'temperature' is not supported with this
+  // model." Determinism on reasoning models comes from
+  // `reasoning.effort` (set to 'medium' for the assessment call),
+  // not from temperature. The `temperature` arg is still in the
+  // signature for backward-compat with non-reasoning models, but we
+  // drop it on the wire.
   const payload = {
     model,
     instructions,

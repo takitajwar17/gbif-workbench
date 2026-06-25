@@ -4,6 +4,8 @@
 // so it is safe to load in any Node.js runtime (Vercel serverless, local
 // dev, tests).
 
+import { computeReadiness, weightedAverageReadiness } from './lib/readinessFormula.js'
+
 export function createHealthResponse() {
   return {
     ok: true,
@@ -119,14 +121,6 @@ function normalizeSupportHeadline(value) {
     .replace(/^(yes|no),?\s+/i, '')
 }
 
-function normalizeReadiness(value) {
-  const score = Number(value)
-  if (!Number.isFinite(score)) return 0
-  if (score > 0 && score <= 5) return Math.round(score * 20)
-  if (score > 5 && score <= 10) return Math.round(score * 10)
-  return Math.max(0, Math.min(100, Math.round(score)))
-}
-
 export function finalizeWorkflow(workflow, payload) {
   return {
     ...workflow,
@@ -136,7 +130,12 @@ export function finalizeWorkflow(workflow, payload) {
   }
 }
 
-export function normalizeTriage(triage) {
+export function normalizeTriage(triage, intent, preview) {
+  // readiness is data-driven: same intent + same GBIF preview => same
+  // four integers, every time. We deliberately overwrite whatever the
+  // LLM returned here, so the LLM is free to put whatever it likes in
+  // the schema field and the user still gets stable, repeatable scores.
+  const readiness = computeReadiness(intent, preview)
   return {
     ...triage,
     support: {
@@ -144,10 +143,10 @@ export function normalizeTriage(triage) {
       headline: normalizeSupportHeadline(triage.support?.headline),
     },
     readiness: {
-      spatial: normalizeReadiness(triage.readiness?.spatial),
-      temporal: normalizeReadiness(triage.readiness?.temporal),
-      taxonomic: normalizeReadiness(triage.readiness?.taxonomic),
-      dataType: normalizeReadiness(triage.readiness?.dataType),
+      ...readiness,
+      // Headline score: weighted average using analysis-type-specific
+      // dimension weights (see readinessFormula.ANALYSIS_TYPE_DIMENSION_WEIGHTS).
+      average: weightedAverageReadiness(readiness, intent),
     },
   }
 }

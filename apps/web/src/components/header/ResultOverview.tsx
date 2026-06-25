@@ -10,7 +10,14 @@ import type { DataPreview, TriageResult, WorkflowPackage } from '@/lib/types'
 export function ResultOverview({ preview, triage, workflow }: { preview: DataPreview | null; triage: TriageResult | null; workflow: WorkflowPackage | null }) {
   if (!preview || !triage) return null
   const topRisk = triage.risks.toSorted((a, b) => riskWeight(b.level) - riskWeight(a.level))[0]
-  const readinessAverage = Math.round((triage.readiness.spatial + triage.readiness.temporal + triage.readiness.taxonomic + triage.readiness.dataType) / 4)
+  // The headline "Average readiness" is computed server-side by
+  // readinessFormula.weightedAverageReadiness, with weights that
+  // depend on the analysis type (different studies care about
+  // different dimensions — see ANALYSIS_TYPE_DIMENSION_WEIGHTS in
+  // apps/web/server/lib/readinessFormula.js).
+  const readinessAverage = typeof triage.readiness.average === 'number'
+    ? triage.readiness.average
+    : Math.round((triage.readiness.spatial + triage.readiness.temporal + triage.readiness.taxonomic + triage.readiness.dataType) / 4)
   const nextStep = triage.nextSteps[0] ?? (workflow ? 'Open the Exports tab and copy the generated code.' : 'Review the generated workflow below.')
 
   return (

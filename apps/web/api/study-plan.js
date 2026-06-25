@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     const query = buildGbifQuery(intent, taxon)
     const preview = await previewGbifData(intent, query)
     const assessment = await assessStudy({ intent, taxon, query, preview })
-    const triage = normalizeTriage(assessment.data.triage)
+    const triage = normalizeTriage(assessment.data.triage, intent, preview)
     const workflow = finalizeWorkflow(assessment.data.workflow, {
       intent,
       taxon,

@@ -143,6 +143,10 @@ export interface TriageResult {
     temporal: number
     taxonomic: number
     dataType: number
+    // Weighted average using analysis-type-specific dimension weights.
+    // Set by the server's normalizeTriage; falls back to flat average
+    // if missing.
+    average?: number
   }
   recommendedFilters: string[]
   unsupportedClaims: string[]
