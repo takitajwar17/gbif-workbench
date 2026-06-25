@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useAnalyze } from './hooks/useAnalyze'
-import { InterpretationPanel } from './components/question/InterpretationPanel'
 import { QuestionCard } from './components/question/QuestionCard'
 import { PreviewSection } from './components/preview/PreviewSection'
 import { TriageSection } from './components/triage/TriageSection'
@@ -49,7 +48,7 @@ function App() {
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              onClick={state.analyze}
+              onClick={state.analyzeNow}
               disabled={state.isBusy || !state.question.trim()}
               size="sm"
               title={state.question.trim() ? 'Run live GBIF analysis on this question' : 'Type a research question to enable'}
@@ -121,26 +120,20 @@ function App() {
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 pb-4" data-pane-scroll>
             <QuestionCard
               question={state.question}
-              draftTaxon={state.draftTaxon}
-              draftRegion={state.draftRegion}
-              draftYears={state.draftYears}
-              draftAnalysis={state.draftAnalysis}
-              draftSpatialResolution={state.draftSpatialResolution}
-              draftSkillLevel={state.draftSkillLevel}
+              intent={state.intent}
+              taxon={state.taxon}
               preferredLanguage={state.preferredLanguage}
               isBusy={state.isBusy}
-              hasStaleResults={state.hasResults && !state.isBusy}
+              hasResults={state.hasResults}
+              scopeDirty={state.scopeDirty}
               onClearResults={state.clearResults}
               onQuestionChange={state.changeQuestion}
               onDemoSelect={state.selectDemoPrompt}
-              onTaxonChange={state.setDraftTaxon}
-              onRegionChange={state.setDraftRegion}
-              onYearsChange={state.setDraftYears}
-              onAnalysisChange={state.setDraftAnalysis}
-              onSpatialResolutionChange={state.setDraftSpatialResolution}
-              onSkillLevelChange={state.setDraftSkillLevel}
+              onAnalyzeNow={state.analyzeNow}
+              onIntentFieldChange={state.updateIntentField}
+              onCountriesChange={state.updateCountries}
               onPreferredLanguageChange={state.setPreferredLanguage}
-              onAnalyze={state.analyze}
+              onRerun={state.analyzeNow}
             />
 
             {state.error && (
@@ -150,21 +143,12 @@ function App() {
                 <AlertDescription>
                   <p>{state.error}</p>
                   <p className="mt-2 text-sm">Check the question text and try again. If the issue persists, the GBIF Workbench backend may be temporarily unavailable.</p>
-                  <Button type="button" variant="outline" size="sm" className="mt-3" onClick={state.analyze}>
+                  <Button type="button" variant="outline" size="sm" className="mt-3" onClick={state.analyzeNow}>
                     Retry analysis
                   </Button>
                 </AlertDescription>
               </Alert>
             )}
-
-            <InterpretationPanel
-              intent={state.intent}
-              taxon={state.taxon}
-              onChange={state.updateIntent}
-              onCountriesChange={state.updateCountries}
-              onRefresh={() => state.rerunEditedScope()}
-              isBusy={state.isBusy}
-            />
             </div>
           </div>
 

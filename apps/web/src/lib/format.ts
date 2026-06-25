@@ -85,3 +85,48 @@ export function friendlyError(message: string, fallback: string): string {
   }
   return message
 }
+
+// Human-readable labels for the AI-inferred scope fields. The intent endpoint
+// returns enum values like 'species_distribution_modelling' for analysisType,
+// but free-form strings (or empty strings) for spatialResolution / skillLevel.
+// These helpers turn each into a presentational label the inline scope
+// summary can render without re-importing ANALYSIS_OPTIONS.
+
+const ANALYSIS_LABEL_MAP: Record<string, string> = {
+  distribution_mapping: 'Distribution mapping',
+  species_distribution_modelling: 'Species distribution modelling',
+  range_shift_exploration: 'Range-shift exploration',
+  temporal_trend_or_abundance: 'Trend / abundance triage',
+  invasive_monitoring_preview: 'Invasive monitoring preview',
+  unknown: 'Auto-detected',
+}
+
+export function formatAnalysisLabel(value: string | null | undefined): string {
+  if (!value) return 'Auto-detected'
+  return ANALYSIS_LABEL_MAP[value] ?? value.replace(/_/g, ' ')
+}
+
+export function formatSpatialLabel(value: string | null | undefined): string {
+  if (!value || value === 'infer') return 'Auto-detected'
+  return value
+}
+
+export function formatSkillLabel(value: string | null | undefined): string {
+  if (!value || value === 'infer') return 'Auto-detected'
+  const trimmed = value.trim()
+  if (!trimmed) return 'Auto-detected'
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase()
+}
+
+export function formatYears(start: number | null, end: number | null): string {
+  if (start && end) return `${start} – ${end}`
+  if (start) return `${start} – present`
+  if (end) return `– ${end}`
+  return 'Any time'
+}
+
+export function formatCountries(values: string[]): string {
+  if (values.length === 0) return 'Worldwide'
+  if (values.length <= 6) return values.join(', ')
+  return `${values.slice(0, 6).join(', ')} +${values.length - 6} more`
+}
