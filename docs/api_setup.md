@@ -16,7 +16,7 @@ OPENAI_REASONING_EFFORT_INTENT="low"
 OPENAI_REASONING_EFFORT_ASSESSMENT="low"
 ```
 
-The `.env` file is ignored by git.
+The `.env` file is ignored by git. Database credentials for account history are pulled from Vercel into `apps/web/.env.local`.
 
 ## OpenAI usage
 
@@ -30,9 +30,12 @@ The `.env` file is ignored by git.
 ## Local API routes
 
 - `GET /api/health`: confirms local API and OpenAI configuration.
+- `GET /api/history`: requires a verified Clerk session and returns saved analysis history for the signed-in account.
+- `GET /api/history?id=...`: requires a verified Clerk session and returns one full restorable history snapshot.
+- `DELETE /api/history?id=...`: requires a verified Clerk session and deletes one saved history entry owned by the signed-in account.
 - `POST /api/parse-intent`: requires a verified Clerk session and returns interpreted study scope without running GBIF preview or assessment.
 - `POST /api/study-plan`: requires a verified Clerk session, runs intent interpretation, GBIF taxon resolution, GBIF preview, and triage. If the optional AI triage call times out, the API returns conservative deterministic triage from the live preview.
-- `POST /api/workflow`: requires a verified Clerk session and generates exportable workflow files from the resolved intent, query, preview, and triage. If the optional AI workflow call times out, the API returns deterministic R, Python, SQL, predicate, cleaning, writeup, citation, Markdown, HTML, notebook, and ZIP-ready content from the live inputs.
+- `POST /api/workflow`: requires a verified Clerk session and generates exportable workflow files from the resolved intent, query, preview, and triage. Completed workflows are saved to account history when `DATABASE_URL` is configured. If the optional AI workflow call times out, the API returns deterministic R, Python, SQL, predicate, cleaning, writeup, citation, Markdown, HTML, notebook, and ZIP-ready content from the live inputs.
 
 ## Authentication
 
@@ -46,6 +49,20 @@ clerk init --app app_3Fep5CGqjTNdmkeXjb6ETymJZFv
 ```
 
 The browser sends the Clerk session token as `Authorization: Bearer ...` to protected API routes. The API verifies that token with `CLERK_SECRET_KEY` before it calls OpenAI or GBIF. Set `CLERK_AUTHORIZED_PARTIES` to comma-separated app origins when you want Clerk's `azp` claim checked as well.
+
+## Account history database
+
+History uses a Vercel Marketplace Neon/Postgres database. Add the Neon integration to the linked Vercel project and pull env vars locally:
+
+```bash
+cd apps/web
+vercel integration add neon --name gbif-workbench-history --plan free_v3 -m region=iad1 -m auth=false
+vercel env pull .env.local
+```
+
+If Vercel returns `integration_terms_acceptance_required`, open the verification URL it prints, accept the Neon Marketplace terms, then rerun the same `vercel integration add neon ...` command.
+
+The API accepts `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, or `NEON_DATABASE_URL`. On first history use, the server creates `gbif_workbench_history` with a per-user index. Each row belongs to the Clerk `userId` and stores a compact list summary plus the full JSON snapshot needed to restore the completed analysis and exports.
 
 The API sets `store: false` for model calls. If the configured model is unavailable to the key, the server queries `/v1/models` and chooses the strongest compatible GPT model available to that account.
 

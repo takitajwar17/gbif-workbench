@@ -5,6 +5,7 @@
 // dev, tests).
 
 import './env.js'
+import { isHistoryDatabaseConfigured } from './historyStore.js'
 import { computeReadiness, weightedAverageReadiness } from './lib/readinessFormula.js'
 
 export function createHealthResponse() {
@@ -12,6 +13,7 @@ export function createHealthResponse() {
     ok: true,
     service: 'gbif-workbench',
     openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    historyConfigured: isHistoryDatabaseConfigured(),
     intentModel:
       process.env.OPENAI_MODEL_INTENT || process.env.OPENAI_MODEL || 'gpt-5.4-mini',
     assessmentModel:

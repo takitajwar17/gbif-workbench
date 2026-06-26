@@ -180,3 +180,35 @@ export interface WorkflowPackage {
   htmlReport: string
   jsonPlan: string
 }
+
+export interface HistorySnapshot {
+  version?: number
+  question: string
+  preferredLanguage: PreferredLanguage
+  intent: StudyIntent
+  taxon: TaxonResolution
+  query: GbifQuery
+  preview: DataPreview
+  triage: TriageResult | null
+  workflow: WorkflowPackage
+  models?: AnalysisModels
+  savedAt?: string
+}
+
+export interface HistoryListItem {
+  id: string
+  question: string
+  taxonName: string | null
+  regionText: string | null
+  countries: string[]
+  analysisType: string | null
+  supportHeadline: string | null
+  recordCount: number
+  readinessAverage: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface HistoryEntry extends HistoryListItem {
+  snapshot: HistorySnapshot
+}

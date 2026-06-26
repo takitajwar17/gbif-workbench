@@ -2,6 +2,8 @@ import type {
   AnalysisModels,
   DataPreview,
   GbifQuery,
+  HistoryEntry,
+  HistoryListItem,
   StudyIntent,
   TaxonResolution,
   TriageResult,
@@ -20,6 +22,11 @@ interface StudyPlanResponse {
 interface WorkflowResponse {
   workflow: WorkflowPackage
   model?: string
+  history?: {
+    saved: boolean
+    reason?: string
+    item?: HistoryListItem
+  }
 }
 
 export interface StudyPlanRequest {
@@ -41,6 +48,14 @@ interface IntentResponse {
 }
 
 export type AuthTokenGetter = () => Promise<string | null>
+
+interface HistoryListResponse {
+  items: HistoryListItem[]
+}
+
+interface HistoryEntryResponse {
+  item: HistoryEntry
+}
 
 export async function requestStudyPlan(payload: StudyPlanRequest, getAuthToken: AuthTokenGetter): Promise<StudyPlanResponse> {
   const response = await authenticatedFetch('/api/study-plan', getAuthToken, {
@@ -95,6 +110,45 @@ export async function requestStudyIntent(payload: StudyPlanRequest, getAuthToken
   }
 
   return (await response.json()) as IntentResponse
+}
+
+export async function requestHistoryList(getAuthToken: AuthTokenGetter): Promise<HistoryListItem[]> {
+  const response = await authenticatedFetch('/api/history?limit=50', getAuthToken, {
+    method: 'GET',
+  })
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error || `GBIF Workbench history failed with status ${response.status}`)
+  }
+
+  const body = (await response.json()) as HistoryListResponse
+  return body.items
+}
+
+export async function requestHistoryEntry(id: string, getAuthToken: AuthTokenGetter): Promise<HistoryEntry> {
+  const response = await authenticatedFetch(`/api/history?id=${encodeURIComponent(id)}`, getAuthToken, {
+    method: 'GET',
+  })
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error || `GBIF Workbench history failed with status ${response.status}`)
+  }
+
+  const body = (await response.json()) as HistoryEntryResponse
+  return body.item
+}
+
+export async function deleteHistoryEntry(id: string, getAuthToken: AuthTokenGetter): Promise<void> {
+  const response = await authenticatedFetch(`/api/history?id=${encodeURIComponent(id)}`, getAuthToken, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error || `GBIF Workbench history delete failed with status ${response.status}`)
+  }
 }
 
 async function authenticatedFetch(input: string, getAuthToken: AuthTokenGetter, init: RequestInit) {

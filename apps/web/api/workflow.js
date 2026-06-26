@@ -1,5 +1,10 @@
 import { assessWorkflow } from '../server/openai.js'
 import { requireUser } from '../server/auth.js'
+import {
+  historyDatabaseError,
+  isHistoryDatabaseConfigured,
+  saveHistoryEntry,
+} from '../server/historyStore.js'
 import { shouldUseDeterministicFallback } from '../server/lib/fallbackPolicy.js'
 import { createFallbackWorkflow } from '../server/lib/fallbackWorkflow.js'
 import { finalizeWorkflow, validateWorkflowBody } from '../server/workflow.js'
@@ -44,14 +49,30 @@ export default async function handler(req, res) {
 
   try {
     const assessment = await assessWorkflow({ intent, taxon, query, preview, triage })
+    const responseModels = { ...models, workflow: assessment.model }
     const workflow = finalizeWorkflow(assessment.data, {
       ...payload,
-      models: { ...models, workflow: assessment.model },
+      models: responseModels,
+    })
+    const history = await saveWorkflowHistory({
+      userId: user.userId,
+      snapshot: {
+        question: intent.question,
+        preferredLanguage: intent.preferredLanguage,
+        intent,
+        taxon,
+        query,
+        preview,
+        triage,
+        workflow,
+        models: responseModels,
+      },
     })
 
     res.status(200).json({
       workflow,
       model: assessment.model,
+      history,
     })
   } catch (error) {
     if (!shouldUseDeterministicFallback(error)) {
@@ -66,6 +87,7 @@ export default async function handler(req, res) {
 
     const message = error instanceof Error ? error.message : 'AI workflow failed.'
     console.warn(`[workflow] AI workflow unavailable; using deterministic fallback: ${message}`)
+    const responseModels = { ...models, workflow: 'deterministic-workflow-fallback' }
     const workflow = finalizeWorkflow(createFallbackWorkflow({
       intent,
       taxon,
@@ -75,12 +97,42 @@ export default async function handler(req, res) {
       reason: message,
     }), {
       ...payload,
-      models: { ...models, workflow: 'deterministic-workflow-fallback' },
+      models: responseModels,
+    })
+    const history = await saveWorkflowHistory({
+      userId: user.userId,
+      snapshot: {
+        question: intent.question,
+        preferredLanguage: intent.preferredLanguage,
+        intent,
+        taxon,
+        query,
+        preview,
+        triage,
+        workflow,
+        models: responseModels,
+      },
     })
 
     res.status(200).json({
       workflow,
       model: 'deterministic-workflow-fallback',
+      history,
     })
+  }
+}
+
+async function saveWorkflowHistory({ userId, snapshot }) {
+  if (!isHistoryDatabaseConfigured()) {
+    return { saved: false, reason: historyDatabaseError().message }
+  }
+
+  try {
+    const item = await saveHistoryEntry({ userId, snapshot })
+    return { saved: true, item }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'History save failed.'
+    console.warn(`[workflow] History save unavailable: ${message}`)
+    return { saved: false, reason: message }
   }
 }

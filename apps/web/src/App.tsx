@@ -11,6 +11,7 @@ import { ResultOverview } from './components/header/ResultOverview'
 import { StatusCard } from './components/header/StatusCard'
 import { WorkflowProgress } from './components/header/WorkflowProgress'
 import { AuthControls } from './auth/AuthProvider'
+import { HistoryButton } from './components/history/HistoryButton'
 
 function App() {
   const state = useAnalyze()
@@ -47,6 +48,7 @@ function App() {
             </Button>
           </nav>
           <div className="flex items-center gap-2">
+            <HistoryButton onRestore={state.loadHistorySnapshot} />
             <AuthControls />
             <Button
               type="button"

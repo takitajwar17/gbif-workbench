@@ -31,6 +31,14 @@ clerk auth login
 clerk init --app app_3Fep5CGqjTNdmkeXjb6ETymJZFv
 ```
 
+Account history uses a Vercel Marketplace Neon/Postgres database. Add the Neon integration to the Vercel project and pull env vars so `DATABASE_URL` is present locally:
+
+```bash
+cd apps/web
+vercel integration add neon --name gbif-workbench-history --plan free_v3 -m region=iad1 -m auth=false
+vercel env pull .env.local
+```
+
 Then open the local URL printed by Vite. The dev script starts both the API server and Vite.
 
 ## Verify
@@ -48,6 +56,7 @@ npm run build
 - Researcher-focused shadcn/ui + Tailwind interface with accessible forms, cards, tabs, alerts, and export controls.
 - Parse-only scope interpretation before the heavier live GBIF preview.
 - OpenAI Responses API structured outputs for intent extraction, study triage, and workflow text, with deterministic live-preview fallbacks for triage and exports.
+- Clerk account auth and Vercel-backed analysis history, with restore/delete controls for completed workflow runs.
 - Editable interpreted scope before and after preview, including spatial resolution and user skill level.
 - GBIF Backbone taxon resolution through `species/match` and `species/search`.
 - Public GBIF occurrence preview through `occurrence/search` counts, facets, issue flags, taxonomic breakdown, coordinate uncertainty, and sample points.

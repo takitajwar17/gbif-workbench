@@ -10,6 +10,7 @@ import type {
   AnalysisModels,
   DataPreview,
   GbifQuery,
+  HistorySnapshot,
   PreferredLanguage,
   StudyIntent,
   TaxonResolution,
@@ -432,6 +433,26 @@ export function useAnalyze() {
     setScopeDirty(false)
   }
 
+  function loadHistorySnapshot(snapshot: HistorySnapshot) {
+    pendingAnalyzeAfterSignInRef.current = false
+    invalidateCurrentRun()
+    const restoredQuestion = String(snapshot.question || snapshot.intent?.question || '').trim()
+
+    setQuestion(restoredQuestion)
+    setPreferredLanguage(snapshot.preferredLanguage || snapshot.intent?.preferredLanguage || 'Both')
+    setIntent(snapshot.intent)
+    setTaxon(snapshot.taxon)
+    setQuery(snapshot.query)
+    setPreview(snapshot.preview)
+    setTriage(snapshot.triage)
+    setWorkflow(snapshot.workflow)
+    setWorkflowError('')
+    setError('')
+    setStatus('ready')
+    lastSubmittedRef.current = restoredQuestion
+    setScopeDirty(false)
+  }
+
   // Cleanup any in-flight workflow fetch on unmount.
   useEffect(() => {
     return () => {
@@ -500,5 +521,6 @@ export function useAnalyze() {
     updateIntentField,
     updateCountries,
     clearResults,
+    loadHistorySnapshot,
   }
 }

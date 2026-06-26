@@ -5,6 +5,7 @@ import './env.js'
 import express from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import historyHandler from '../api/history.js'
 import healthHandler from '../api/health.js'
 import parseIntentHandler from '../api/parse-intent.js'
 import studyPlanHandler from '../api/study-plan.js'
@@ -18,6 +19,7 @@ const port = Number(process.env.PORT || 8787)
 app.use(express.json({ limit: '2mb' }))
 
 app.get('/api/health', healthHandler)
+app.all('/api/history', historyHandler)
 app.post('/api/parse-intent', parseIntentHandler)
 app.post('/api/study-plan', studyPlanHandler)
 app.post('/api/workflow', workflowHandler)
