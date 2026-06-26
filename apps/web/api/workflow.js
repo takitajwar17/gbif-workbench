@@ -1,4 +1,6 @@
 import { assessWorkflow } from '../server/openai.js'
+import { shouldUseDeterministicFallback } from '../server/lib/fallbackPolicy.js'
+import { createFallbackWorkflow } from '../server/lib/fallbackWorkflow.js'
 import { finalizeWorkflow, validateWorkflowBody } from '../server/workflow.js'
 
 // Vercel Node.js serverless function: POST /api/workflow
@@ -26,27 +28,48 @@ export default async function handler(req, res) {
   }
   const { intent, taxon, query, preview, triage } = validation.value
 
+  const payload = {
+    intent,
+    taxon,
+    query,
+    preview,
+    triage,
+    generatedAt: new Date().toISOString(),
+  }
+
   try {
     const assessment = await assessWorkflow({ intent, taxon, query, preview, triage })
-    const workflow = finalizeWorkflow(assessment.data, {
-      intent,
-      taxon,
-      query,
-      preview,
-      triage,
-      generatedAt: new Date().toISOString(),
-    })
+    const workflow = finalizeWorkflow(assessment.data, payload)
 
     res.status(200).json({
       workflow,
       model: assessment.model,
     })
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'GBIF Workbench workflow generation failed.'
-    console.error('[workflow]', message)
-    res.status(500).json({ error: message })
+    if (!shouldUseDeterministicFallback(error)) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'GBIF Workbench workflow generation failed.'
+      console.error('[workflow]', message)
+      res.status(500).json({ error: message })
+      return
+    }
+
+    const message = error instanceof Error ? error.message : 'AI workflow failed.'
+    console.warn(`[workflow] AI workflow unavailable; using deterministic fallback: ${message}`)
+    const workflow = finalizeWorkflow(createFallbackWorkflow({
+      intent,
+      taxon,
+      query,
+      preview,
+      triage,
+      reason: message,
+    }), payload)
+
+    res.status(200).json({
+      workflow,
+      model: 'deterministic-workflow-fallback',
+    })
   }
 }

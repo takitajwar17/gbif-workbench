@@ -15,6 +15,9 @@ import type {
   WorkflowPackage,
 } from '@/lib/types'
 
+const STALE_WORKFLOW_MESSAGE =
+  'Scope changed after this run. Re-run the analysis to regenerate exports for the edited scope.'
+
 // Single source of truth for the workspace's `useState` graph + the imperative
 // actions that mutate it. The orchestrator (App.tsx) only renders JSX and
 // forwards props; everything stateful lives here so each child component can
@@ -86,12 +89,6 @@ export function useAnalyze() {
   // the previous one so the user never sees a workflow that belongs to the
   // previous scope land on the current scope.
   const workflowAbortRef = useRef<AbortController | null>(null)
-  const clearTimers = useCallback(() => {
-    // No debounce timers remain — all analysis is now triggered explicitly
-    // by the Analyze study / Re-run buttons. Kept as a no-op so existing
-    // call sites can stay unchanged.
-  }, [])
-
   // Cancel any in-flight /api/workflow call. Called from runStudy before
   // it starts and from every result-clearing action so a stale workflow
   // never lands after the user has wiped the state.
@@ -101,6 +98,16 @@ export function useAnalyze() {
       workflowAbortRef.current = null
     }
   }, [])
+
+  function markScopeEdited() {
+    cancelWorkflow()
+    runIdRef.current += 1
+    setWorkflow(null)
+    setWorkflowError(STALE_WORKFLOW_MESSAGE)
+    if (status === 'interpreting' || status === 'previewing' || status === 'generating') {
+      setStatus(preview || triage ? 'ready' : 'idle')
+    }
+  }
 
   async function runStudy(payload: StudyPlanRequest, runId: number) {
     const trimmedQuestion = payload.question.trim()
@@ -287,7 +294,6 @@ export function useAnalyze() {
       lastSubmittedRef.current = ''
       return
     }
-    clearTimers()
     if (intent) {
       cancelWorkflow()
       runIdRef.current += 1
@@ -323,6 +329,7 @@ export function useAnalyze() {
     // Edits to the inline scope summary are local until the user explicitly
     // presses the Re-run button (or Analyze study). This lets users refine
     // multiple fields without burning an LLM call per keystroke.
+    markScopeEdited()
     setIntent((current) => {
       if (!current) return current
       // Keep taxonText + taxonQuery in sync when the user edits taxonText.
@@ -342,8 +349,15 @@ export function useAnalyze() {
     updateIntentField('countries', deduped)
   }
 
+  function changePreferredLanguage(value: PreferredLanguage) {
+    setPreferredLanguage(value)
+    if (intent) {
+      markScopeEdited()
+      setScopeDirty(true)
+    }
+  }
+
   function selectDemoPrompt(prompt: string) {
-    clearTimers()
     cancelWorkflow()
     setQuestion(prompt)
     setIntent(null)
@@ -364,7 +378,6 @@ export function useAnalyze() {
   }
 
   function clearResults() {
-    clearTimers()
     cancelWorkflow()
     setIntent(null)
     setTaxon(null)
@@ -379,17 +392,15 @@ export function useAnalyze() {
     setScopeDirty(false)
   }
 
-  // Cleanup any pending timers / in-flight workflow fetches on unmount.
+  // Cleanup any in-flight workflow fetch on unmount.
   useEffect(() => {
     return () => {
-      clearTimers()
       cancelWorkflow()
     }
-  }, [clearTimers, cancelWorkflow])
+  }, [cancelWorkflow])
 
   return {
     question,
-    setQuestion,
     intent,
     setIntent,
     taxon,
@@ -410,7 +421,7 @@ export function useAnalyze() {
     setWorkflowError,
     isBusy,
     preferredLanguage,
-    setPreferredLanguage,
+    setPreferredLanguage: changePreferredLanguage,
     activeWorkflowGroup,
     setActiveWorkflowGroup,
     activeCodeLanguage,

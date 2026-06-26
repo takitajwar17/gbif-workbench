@@ -29,9 +29,16 @@ describe('friendlyError — network failures', () => {
     expect(out).toMatch(/connection/i)
   })
 
-  it('maps "network request failed" to the same connection message', () => {
-    const out = friendlyError('OpenAI network request failed: ECONNRESET', 'fallback')
+  it('maps browser "network request failed" to the same connection message', () => {
+    const out = friendlyError('Network request failed', 'fallback')
     expect(out).toMatch(/Could not reach the GBIF Workbench backend/i)
+  })
+
+  it('maps upstream AI network failures to an AI-service message', () => {
+    const out = friendlyError('OpenAI network request failed: ECONNRESET', 'fallback')
+    expect(out).toMatch(/AI service/i)
+    expect(out).toMatch(/could not reach/i)
+    expect(out).not.toMatch(/Could not reach the GBIF Workbench backend/i)
   })
 })
 

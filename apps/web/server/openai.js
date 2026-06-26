@@ -19,26 +19,32 @@ const ASSESSMENT_CACHE_MAX_ENTRIES = Number(process.env.OPENAI_ASSESSMENT_CACHE_
 const ASSESSMENT_CACHE_ENABLED = process.env.OPENAI_ASSESSMENT_CACHE !== 'false'
 
 // Per-attempt timeout + retry count, separately configured for the
-// triage and workflow calls so each fits the Vercel Hobby 60s ceiling
-// on cold path even with retries.
+// intent, triage, and workflow calls so each fits the Vercel Hobby 60s
+// ceiling on cold path even with retries/fallbacks.
 //
-//   /api/study-plan (triage): non-LLM steps (intent LLM in parallel
-//     with resolveTaxon, then previewGbifData) consume ~5–10s, so the
-//     triage LLM has ~50s of the 60s budget left. 2 attempts at 20s
-//     each + 1s backoff = 41s — comfortably under the ceiling.
+//   /api/study-plan (intent): keep two attempts because a valid intent
+//     is required to query GBIF correctly.
 //
-//   /api/workflow (workflow): no non-LLM steps, so the workflow LLM
-//     has the full 60s budget. 3 attempts at 17s each + 1s + 2s
-//     backoff = 54s — fits the ceiling.
+//   /api/study-plan (triage): one fast attempt. If it times out or the
+//     AI service is transiently unavailable, the route returns a
+//     deterministic preview-based triage instead of failing the whole
+//     analysis.
+//
+//   /api/workflow (workflow): one bounded attempt by default. If the
+//     large workflow call misses the timeout, /api/workflow returns a
+//     deterministic export package so export controls still work.
 //
 // Override via env:
+//   OPENAI_INTENT_ATTEMPT_TIMEOUT_MS, OPENAI_INTENT_MAX_ATTEMPTS
 //   OPENAI_TRIAGE_ATTEMPT_TIMEOUT_MS, OPENAI_TRIAGE_MAX_ATTEMPTS
 //   OPENAI_WORKFLOW_ATTEMPT_TIMEOUT_MS, OPENAI_WORKFLOW_MAX_ATTEMPTS
 //   OPENAI_RETRY_BACKOFF_MS
-const DEFAULT_TRIAGE_ATTEMPT_TIMEOUT_MS = Number(process.env.OPENAI_TRIAGE_ATTEMPT_TIMEOUT_MS || 20_000)
-const DEFAULT_TRIAGE_MAX_ATTEMPTS = Number(process.env.OPENAI_TRIAGE_MAX_ATTEMPTS || 2)
-const DEFAULT_WORKFLOW_ATTEMPT_TIMEOUT_MS = Number(process.env.OPENAI_WORKFLOW_ATTEMPT_TIMEOUT_MS || 17_000)
-const DEFAULT_WORKFLOW_MAX_ATTEMPTS = Number(process.env.OPENAI_WORKFLOW_MAX_ATTEMPTS || 3)
+const DEFAULT_INTENT_ATTEMPT_TIMEOUT_MS = Number(process.env.OPENAI_INTENT_ATTEMPT_TIMEOUT_MS || 20_000)
+const DEFAULT_INTENT_MAX_ATTEMPTS = Number(process.env.OPENAI_INTENT_MAX_ATTEMPTS || 2)
+const DEFAULT_TRIAGE_ATTEMPT_TIMEOUT_MS = Number(process.env.OPENAI_TRIAGE_ATTEMPT_TIMEOUT_MS || 12_000)
+const DEFAULT_TRIAGE_MAX_ATTEMPTS = Number(process.env.OPENAI_TRIAGE_MAX_ATTEMPTS || 1)
+const DEFAULT_WORKFLOW_ATTEMPT_TIMEOUT_MS = Number(process.env.OPENAI_WORKFLOW_ATTEMPT_TIMEOUT_MS || 15_000)
+const DEFAULT_WORKFLOW_MAX_ATTEMPTS = Number(process.env.OPENAI_WORKFLOW_MAX_ATTEMPTS || 1)
 const DEFAULT_RETRY_BACKOFF_MS = Number(process.env.OPENAI_RETRY_BACKOFF_MS || 1_000)
 
 let fallbackModelPromise = null
@@ -60,11 +66,11 @@ export async function interpretStudyIntent({ question, overrides }) {
     instructions: intentInstructions,
     effort: process.env.OPENAI_REASONING_EFFORT_INTENT || 'low',
     maxOutputTokens: 5000,
-    // The intent call is small and fast — share the triage retry
-    // budget so a truncated intent JSON also retries with a bigger
-    // budget. 2 attempts at 20s = 40s worst case.
-    maxAttempts: DEFAULT_TRIAGE_MAX_ATTEMPTS,
-    attemptTimeoutMs: DEFAULT_TRIAGE_ATTEMPT_TIMEOUT_MS,
+    // The intent call is required to query GBIF correctly, so keep a
+    // real retry budget even though triage itself now degrades to a
+    // deterministic fallback.
+    maxAttempts: DEFAULT_INTENT_MAX_ATTEMPTS,
+    attemptTimeoutMs: DEFAULT_INTENT_ATTEMPT_TIMEOUT_MS,
     retryBackoffMs: DEFAULT_RETRY_BACKOFF_MS,
     input: [
       {
@@ -118,8 +124,9 @@ export async function assessTriage({ intent, taxon, query, preview }) {
     instructions: triageInstructions,
     effort,
     maxOutputTokens: 4500,
-    // Triage: 2 attempts at 20s + 1s backoff = 41s worst case. Fits
-    // the Vercel Hobby 60s ceiling after the upstream GBIF round-trips.
+    // Triage: one fast attempt by default. If this misses the timeout,
+    // /api/study-plan falls back to deterministic, preview-grounded
+    // triage instead of failing the whole study.
     maxAttempts: DEFAULT_TRIAGE_MAX_ATTEMPTS,
     attemptTimeoutMs: DEFAULT_TRIAGE_ATTEMPT_TIMEOUT_MS,
     retryBackoffMs: DEFAULT_RETRY_BACKOFF_MS,
@@ -167,7 +174,7 @@ export async function assessWorkflow({ intent, taxon, query, preview, triage }) 
   // for higher-quality code + markdown at the cost of longer latency.
   const effort = process.env.OPENAI_REASONING_EFFORT_ASSESSMENT || 'low'
   const cacheKey = ASSESSMENT_CACHE_ENABLED
-    ? buildAssessmentCacheKey({ scope: 'workflow', model, effort, intent, taxon, query, preview })
+    ? buildAssessmentCacheKey({ scope: 'workflow', model, effort, intent, taxon, query, preview, triage })
     : null
   if (cacheKey) {
     const cached = workflowCache.get(cacheKey)
@@ -185,9 +192,9 @@ export async function assessWorkflow({ intent, taxon, query, preview, triage }) 
     // budget here so the LLM can finish every field (R code, Python
     // code, markdown report, html report) without truncation.
     maxOutputTokens: 12000,
-    // Workflow: 3 attempts at 17s + 1s + 2s backoff = 54s worst case.
-    // Tighter per-attempt timeout than triage because workflow has
-    // more attempts and no non-LLM steps to share the Vercel 60s budget.
+    // Workflow: one bounded attempt by default. If it misses, the API
+    // returns deterministic exports rather than blocking all export
+    // controls behind a large AI response.
     maxAttempts: DEFAULT_WORKFLOW_MAX_ATTEMPTS,
     attemptTimeoutMs: DEFAULT_WORKFLOW_ATTEMPT_TIMEOUT_MS,
     retryBackoffMs: DEFAULT_RETRY_BACKOFF_MS,
@@ -497,6 +504,8 @@ function throwOpenAIError(error, status) {
 // inputs that actually change the answer: the model and reasoning
 // effort, the resolved taxonKey, the query filter set, the analysis
 // type, the preview counts/facets, and the preview's fetchedAt minute.
+// Workflow cache keys also include a digest of the triage object because
+// the workflow prompt uses that verdict as source material for reports.
 // Re-running the same scope within the TTL returns the prior
 // structured output without calling OpenAI again.
 //
@@ -505,7 +514,7 @@ function throwOpenAIError(error, status) {
 // from the other after we've tuned the prompts. The `scope` segment
 // is included in the hash so a key collision between the two is
 // impossible.
-function buildAssessmentCacheKey({ scope, model, effort, intent, taxon, query, preview }) {
+function buildAssessmentCacheKey({ scope, model, effort, intent, taxon, query, preview, triage = null }) {
   if (!intent || !taxon || !query || !preview) return null
   const payload = {
     scope,
@@ -525,8 +534,9 @@ function buildAssessmentCacheKey({ scope, model, effort, intent, taxon, query, p
     samplingEventHits: preview.samplingEvents?.datasetHits ?? 0,
     sampledPoints: Array.isArray(preview.samplePoints) ? preview.samplePoints.length : 0,
     fetchedAtMinute: (preview.fetchedAt || '').slice(0, 16),
+    triageDigest: scope === 'workflow' ? stableDigest(triage ?? null) : null,
   }
-  return crypto.createHash('sha256').update(stableStringify(payload)).digest('hex')
+  return stableDigest(payload)
 }
 
 function topBucketCounts(facets, limit) {
@@ -541,4 +551,8 @@ function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
   const keys = Object.keys(value).sort()
   return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`
+}
+
+function stableDigest(value) {
+  return crypto.createHash('sha256').update(stableStringify(value) ?? 'undefined').digest('hex')
 }

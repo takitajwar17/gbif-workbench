@@ -8,6 +8,7 @@ import { Spinner } from '@/components/ui/spinner'
 // knows the export failed without losing the rest of the result card.
 export function WorkflowLoadingPanel({ error }: { error?: string }) {
   if (error) {
+    const needsRerun = error.startsWith('Scope changed')
     return (
       <section
         aria-label="Workflow generation error"
@@ -16,9 +17,11 @@ export function WorkflowLoadingPanel({ error }: { error?: string }) {
         <div className="flex items-start gap-2">
           <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
           <div className="min-w-0">
-            <p className="text-sm font-medium text-destructive">Workflow export unavailable</p>
+            <p className="text-sm font-medium text-destructive">
+              {needsRerun ? 'Workflow export needs re-run' : 'Workflow export unavailable'}
+            </p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {error} Re-run the analysis to retry. The rest of the result card stays usable.
+              {needsRerun ? error : `${error} Re-run the analysis to retry. The rest of the result card stays usable.`}
             </p>
           </div>
         </div>

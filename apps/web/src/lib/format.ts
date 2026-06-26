@@ -76,6 +76,9 @@ export function friendlyError(message: string, fallback: string): string {
   // Map common network / API errors to user-friendly copy. The order
   // matters here — more specific patterns first so they don't get
   // swallowed by the catch-all "status 5xx" branch below.
+  if (/OpenAI network request failed/i.test(message)) {
+    return 'The backend could not reach the AI service after retrying. Please run the analysis again in a moment.'
+  }
   if (/failed to fetch|networkerror|network request failed/i.test(message)) {
     return 'Could not reach the GBIF Workbench backend. Check your connection and try again.'
   }

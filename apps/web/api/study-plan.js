@@ -6,6 +6,10 @@ import {
   resolveTaxon,
 } from '../server/gbif.js'
 import {
+  createFallbackTriage,
+} from '../server/lib/fallbackTriage.js'
+import { shouldUseDeterministicFallback } from '../server/lib/fallbackPolicy.js'
+import {
   normalizeTriage,
   seedIntentFromOverrides,
   validateStudyPlanBody,
@@ -54,8 +58,23 @@ export default async function handler(req, res) {
       llmName && seedName !== llmName ? await resolveTaxon(intent) : seedTaxon
     const query = buildGbifQuery(intent, taxon)
     const preview = await previewGbifData(intent, query)
-    const assessment = await assessTriage({ intent, taxon, query, preview })
-    const triage = normalizeTriage(assessment.data, intent, preview)
+    let triage
+    let triageModel
+    try {
+      const assessment = await assessTriage({ intent, taxon, query, preview })
+      triage = normalizeTriage(assessment.data, intent, preview)
+      triageModel = assessment.model
+    } catch (error) {
+      if (!shouldUseDeterministicFallback(error)) throw error
+      const message = error instanceof Error ? error.message : 'AI triage failed.'
+      console.warn(`[study-plan] AI triage unavailable; using deterministic fallback: ${message}`)
+      triage = normalizeTriage(
+        createFallbackTriage({ intent, taxon, preview, reason: message }),
+        intent,
+        preview,
+      )
+      triageModel = 'deterministic-preview-fallback'
+    }
 
     res.status(200).json({
       intent,
@@ -65,7 +84,7 @@ export default async function handler(req, res) {
       triage,
       models: {
         intent: interpreted.model,
-        triage: assessment.model,
+        triage: triageModel,
       },
     })
   } catch (error) {

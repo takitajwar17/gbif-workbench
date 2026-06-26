@@ -142,7 +142,7 @@ function App() {
                 <AlertTitle>Analysis failed</AlertTitle>
                 <AlertDescription>
                   <p>{state.error}</p>
-                  <p className="mt-2 text-sm">Check the question text and try again. If the issue persists, the GBIF Workbench backend may be temporarily unavailable.</p>
+                  <p className="mt-2 text-sm">Review the message above, then retry. Temporary AI service, GBIF, or backend issues often resolve on another run.</p>
                   <Button type="button" variant="outline" size="sm" className="mt-3" onClick={state.analyzeNow}>
                     Retry analysis
                   </Button>
