@@ -66,7 +66,6 @@ export function createHistoryPayload(snapshot) {
 
 export function createHistorySummary(payload) {
   const previewCount = Number(payload.preview?.counts?.total || 0)
-  const readinessAverage = payload.triage?.readiness?.average
   const countries = Array.isArray(payload.intent?.countries) ? payload.intent.countries : []
 
   return {
@@ -80,10 +79,6 @@ export function createHistorySummary(payload) {
     analysisType: stringOrNull(payload.intent?.analysisType),
     supportHeadline: stringOrNull(payload.triage?.support?.headline),
     recordCount: Number.isFinite(previewCount) ? previewCount : 0,
-    readinessAverage:
-      typeof readinessAverage === 'number' && Number.isFinite(readinessAverage)
-        ? Math.round(readinessAverage)
-        : null,
   }
 }
 
@@ -106,7 +101,6 @@ export async function saveHistoryEntry({ userId, snapshot }) {
       analysis_type,
       support_headline,
       record_count,
-      readiness_average,
       payload
     )
     VALUES (
@@ -119,11 +113,10 @@ export async function saveHistoryEntry({ userId, snapshot }) {
       ${summary.analysisType},
       ${summary.supportHeadline},
       ${summary.recordCount},
-      ${summary.readinessAverage},
       ${JSON.stringify(payload)}::jsonb
     )
     RETURNING id, question, taxon_name, region_text, countries, analysis_type,
-      support_headline, record_count, readiness_average, created_at, updated_at
+      support_headline, record_count, created_at, updated_at
   `
 
   return normalizeHistoryRow(rows[0])
@@ -135,7 +128,7 @@ export async function listHistoryEntries({ userId, limit = DEFAULT_LIMIT }) {
   const sql = await getReadySql()
   const rows = await sql`
     SELECT id, question, taxon_name, region_text, countries, analysis_type,
-      support_headline, record_count, readiness_average, created_at, updated_at
+      support_headline, record_count, created_at, updated_at
     FROM gbif_workbench_history
     WHERE user_id = ${userId}
     ORDER BY created_at DESC
@@ -151,7 +144,7 @@ export async function getHistoryEntry({ userId, id }) {
   const sql = await getReadySql()
   const rows = await sql`
     SELECT id, question, taxon_name, region_text, countries, analysis_type,
-      support_headline, record_count, readiness_average, created_at, updated_at, payload
+      support_headline, record_count, created_at, updated_at, payload
     FROM gbif_workbench_history
     WHERE user_id = ${userId} AND id = ${id}
     LIMIT 1
@@ -182,12 +175,11 @@ export async function updateHistoryEntry({ userId, id, snapshot }) {
       analysis_type = ${summary.analysisType},
       support_headline = ${summary.supportHeadline},
       record_count = ${summary.recordCount},
-      readiness_average = ${summary.readinessAverage},
       payload = ${JSON.stringify(payload)}::jsonb,
       updated_at = now()
     WHERE user_id = ${userId} AND id = ${id}
     RETURNING id, question, taxon_name, region_text, countries, analysis_type,
-      support_headline, record_count, readiness_average, created_at, updated_at
+      support_headline, record_count, created_at, updated_at
   `
   return rows[0] ? normalizeHistoryRow(rows[0]) : null
 }
@@ -236,7 +228,6 @@ function ensureSchema(sql) {
         analysis_type text,
         support_headline text,
         record_count bigint NOT NULL DEFAULT 0,
-        readiness_average integer,
         payload jsonb NOT NULL,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
@@ -259,9 +250,6 @@ function normalizeHistoryRow(row) {
     analysisType: stringOrNull(row.analysis_type),
     supportHeadline: stringOrNull(row.support_headline),
     recordCount: Number(row.record_count || 0),
-    readinessAverage: row.readiness_average === null || row.readiness_average === undefined
-      ? null
-      : Number(row.readiness_average),
     createdAt: normalizeDate(row.created_at),
     updatedAt: normalizeDate(row.updated_at),
   }

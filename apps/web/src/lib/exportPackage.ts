@@ -20,6 +20,9 @@ export async function createExportZip(workflow: WorkflowPackage, query: GbifQuer
   const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   const analysisSummary = createAnalysisSummary(workflow)
+  // Ordered for a top-to-bottom workflow: read the report, inspect the
+  // raw analysis, run the download (R or Python), then run cleaning,
+  // then drop the methods/limitations/citation text into the manuscript.
   zip.file('README.md', exportReadme())
   zip.file('study_plan.md', withAnalysisAppendix(workflow.markdownReport, analysisSummary))
   zip.file('study_plan.qmd', createQuartoNotebook(workflow))
@@ -216,7 +219,6 @@ export function createAnalysisSummary(workflow: WorkflowPackage) {
     ...countBullets(objectValue(preview.counts)),
     '',
     '## Readiness',
-    bullet('Overall', formatNumberField(readiness.average)),
     bullet('Spatial', formatNumberField(readiness.spatial)),
     bullet('Temporal', formatNumberField(readiness.temporal)),
     bullet('Taxonomic', formatNumberField(readiness.taxonomic)),
@@ -294,10 +296,26 @@ This package was generated from a live GBIF Workbench run.
 
 Use the workflow files to reproduce the scoped GBIF query, request a DOI-backed GBIF download, clean records, and cite the resulting data.
 
-- \`analysis_summary.md\` is the human-readable appendix generated from the raw analysis state.
-- \`complete_analysis.json\` contains the interpreted study scope, GBIF taxon resolution, query, aggregated preview, sample points, triage output, model metadata, and run timestamp.
-- \`data_availability_summary.json\` is kept as a backwards-compatible copy of the same raw analysis state.
-- Generated R, Python, SQL, predicate JSON, cleaning, methods, limitations, citation, Markdown, HTML, Quarto, and Jupyter files are included separately.
+Recommended order:
+
+1. Read \`study_plan.md\` or \`report.html\` for the human-readable interpretation, risks, and methods text.
+2. Inspect \`analysis_summary.md\` for the deterministic appendix grounded in the live GBIF preview.
+3. Pick \`gbif_download.R\` *or* \`gbif_download.py\` and run it. It submits a DOI-backed GBIF download via \`occ_download()\` (R) or the download API (Python), polls for completion, and writes \`gbif_occurrences.csv\` plus a \`gbif_doi.txt\` containing the returned DOI.
+4. Run \`cleaning_pipeline.R\` against \`gbif_occurrences.csv\`.
+5. Paste the DOI from \`gbif_doi.txt\` into \`citation_instructions.md\` and your manuscript methods section.
+
+Files:
+
+- \`analysis_summary.md\` — human-readable appendix generated from the raw analysis state.
+- \`complete_analysis.json\` — full restorable snapshot (intent, taxon, query, preview, triage, workflow, models, timestamp).
+- \`data_availability_summary.json\` — backwards-compatible copy of the same snapshot.
+- \`gbif_query_params.json\` — exact GBIF occurrence/search parameters used for the preview.
+- \`gbif_download_request.json\` — exact predicate body for the GBIF download API.
+- \`gbif_download.R\` / \`gbif_download.py\` — submit, poll, and export the DOI-backed download.
+- \`gbif_occurrence_cube.sql\` — SQL/cube starter query for advanced users.
+- \`cleaning_pipeline.R\` — coordinate, date, and duplicate filters that read \`gbif_occurrences.csv\`.
+- \`methods_text.md\` / \`limitations_text.md\` / \`citation_instructions.md\` — drop-in manuscript paragraphs.
+- \`study_plan.qmd\` / \`study_plan.ipynb\` — runnable notebook equivalents of the workflow.
 `
 }
 

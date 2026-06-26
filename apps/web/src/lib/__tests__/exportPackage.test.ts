@@ -102,7 +102,7 @@ const workflow: WorkflowPackage = {
         recommendedMitigation: 'Review sampling bias before modelling.',
         relatedWorkflowStep: 'Coordinate cleaning',
       }],
-      readiness: { spatial: 80, temporal: 75, taxonomic: 95, dataType: 70, average: 80 },
+      readiness: { spatial: 80, temporal: 75, taxonomic: 95, dataType: 70 },
       recommendedFilters: ['Require usable coordinates.'],
       unsupportedClaims: ['Population abundance claims need extra data.'],
       nextSteps: ['Create a DOI-backed GBIF download.'],

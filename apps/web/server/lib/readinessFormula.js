@@ -4,7 +4,7 @@
 // pure function of the resolved `intent` and the GBIF `DataPreview`.
 // Same intent + same preview always returns the same four integers,
 // which removes the dominant source of run-to-run variance in the
-// result card ("Average readiness") and the four `Readiness` bars.
+// four `Readiness` bars shown on the result card.
 //
 // The four dimensions mirror what ecological researchers evaluate when
 // deciding whether GBIF data can answer a study question:
@@ -14,6 +14,12 @@
 //   - taxonomic: name resolution from GBIF backbone + ambiguity cleanliness
 //   - dataType:  whether GBIF occurrence-only data fits the analysis
 //                type (per the GBIF literature)
+//
+// We deliberately do NOT collapse these four dimensions into a single
+// "average readiness" score. IDEA.md §21.5 calls this out: a single
+// weighted number invites users to overclaim ("76/100 — Strong!"), and
+// the same study can be Strong on spatial but Weak on temporal in ways
+// a flat score hides. Each dimension is reported on its own bar.
 //
 // Weights and signals were audited against published GBIF methodology
 // papers (Beck et al. 2014, Phillips et al. 2009, Araújo & Peterson
@@ -110,27 +116,6 @@ const TEMPORAL_SIGNAL_WEIGHTS = Object.freeze({
 
 const DATA_TYPE_SIGNAL_WEIGHTS = Object.freeze({
   analysisFit: 1.0, // the lookup-table signal is already a multi-component blend
-})
-
-// ---------------------------------------------------------------------------
-// Aggregation weights for the headline "Average readiness" stat
-// ---------------------------------------------------------------------------
-//
-// Per-analysis-type weights for combining the four dimensions into a
-// single score. The published literature is consistent that different
-// analysis types weight dimensions very differently — a flat 25% per
-// dimension pretends they're equally important, which they aren't.
-// Reference: Phillips et al. 2009 (SDM cares about spatial bias and
-// taxonomic accuracy), Lister et al. 2011 (temporal trend cares
-// about continuity), GBIF red-list guidance (EOO/AOO cares about
-// spatial extent and taxonomic certainty).
-const ANALYSIS_TYPE_DIMENSION_WEIGHTS = Object.freeze({
-  distribution_mapping: Object.freeze({ spatial: 0.35, temporal: 0.15, taxonomic: 0.20, dataType: 0.30 }),
-  species_distribution_modelling: Object.freeze({ spatial: 0.30, temporal: 0.10, taxonomic: 0.30, dataType: 0.30 }),
-  range_shift_exploration: Object.freeze({ spatial: 0.25, temporal: 0.30, taxonomic: 0.20, dataType: 0.25 }),
-  temporal_trend_or_abundance: Object.freeze({ spatial: 0.15, temporal: 0.40, taxonomic: 0.20, dataType: 0.25 }),
-  invasive_monitoring_preview: Object.freeze({ spatial: 0.30, temporal: 0.20, taxonomic: 0.25, dataType: 0.25 }),
-  unknown: Object.freeze({ spatial: 0.25, temporal: 0.25, taxonomic: 0.25, dataType: 0.25 }),
 })
 
 // ---------------------------------------------------------------------------
@@ -390,34 +375,9 @@ export function computeReadiness(intent, preview) {
   }
 }
 
-// Weighted average of the four dimensions, where the weights are
-// analysis-type-specific (different analyses care about different
-// dimensions). Returns an integer 0-100. Used to compute the
-// "Average readiness" headline stat shown on the result card.
-//
-// We expose this as a separate function (rather than baking it into
-// computeReadiness) so callers can render the four bars individually
-// AND compute a tailored overall score.
-export function weightedAverageReadiness(readiness, intent) {
-  const safe = readiness || {}
-  const type = typeof intent?.analysisType === 'string' ? intent.analysisType : 'unknown'
-  const weights = ANALYSIS_TYPE_DIMENSION_WEIGHTS[type] ?? ANALYSIS_TYPE_DIMENSION_WEIGHTS.unknown
-  const spatial = Number.isFinite(safe.spatial) ? safe.spatial : 0
-  const temporal = Number.isFinite(safe.temporal) ? safe.temporal : 0
-  const taxonomic = Number.isFinite(safe.taxonomic) ? safe.taxonomic : 0
-  const dataType = Number.isFinite(safe.dataType) ? safe.dataType : 0
-  const weighted =
-    spatial * weights.spatial +
-    temporal * weights.temporal +
-    taxonomic * weights.taxonomic +
-    dataType * weights.dataType
-  return clamp(Math.round(weighted), 0, 100)
-}
-
 export const __INTERNALS = Object.freeze({
   ANALYSIS_TYPE_BASE_FIT,
   ANALYSIS_TYPE_SAMPLING_BOOST,
-  ANALYSIS_TYPE_DIMENSION_WEIGHTS,
   TAXON_ISSUE_FLAGS,
   DATE_ISSUE_FLAGS,
   spatialScore,

@@ -12,6 +12,10 @@
     "preview": "vite preview",
     "start": "node server/index.js",
     "test": "vitest run",
+    "check:runnable": "node scripts/check-workflow-runnable.mjs",
+    "check:runnable:json": "node scripts/check-workflow-runnable.mjs --json",
+    "check:validator": "node scripts/check-workflow-runnable.mjs --check-validator",
+    "build:examples": "node scripts/build-examples.mjs",
     "vercel-build": "npm run build",
     "deploy": "vercel --prod"
   },

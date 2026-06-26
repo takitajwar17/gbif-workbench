@@ -6,7 +6,7 @@
 
 import './env.js'
 import { isHistoryDatabaseConfigured } from './historyStore.js'
-import { computeReadiness, weightedAverageReadiness } from './lib/readinessFormula.js'
+import { computeReadiness } from './lib/readinessFormula.js'
 
 export function createHealthResponse() {
   return {
@@ -190,6 +190,8 @@ export function normalizeTriage(triage, intent, preview) {
   // four integers, every time. We deliberately overwrite whatever the
   // LLM returned here, so the LLM is free to put whatever it likes in
   // the schema field and the user still gets stable, repeatable scores.
+  // We do NOT add an `average` field — IDEA.md §21.5 explicitly forbids
+  // collapsing the four dimensions into one headline number.
   const readiness = computeReadiness(intent, preview)
   return {
     ...triage,
@@ -197,11 +199,6 @@ export function normalizeTriage(triage, intent, preview) {
       ...triage.support,
       headline: normalizeSupportHeadline(triage.support?.headline),
     },
-    readiness: {
-      ...readiness,
-      // Headline score: weighted average using analysis-type-specific
-      // dimension weights (see readinessFormula.ANALYSIS_TYPE_DIMENSION_WEIGHTS).
-      average: weightedAverageReadiness(readiness, intent),
-    },
+    readiness,
   }
 }

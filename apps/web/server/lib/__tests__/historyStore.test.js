@@ -47,7 +47,6 @@ describe('createHistorySummary', () => {
       analysisType: 'distribution_mapping',
       supportHeadline: 'Usable with caveats',
       recordCount: 120,
-      readinessAverage: 74,
     })
   })
 })
@@ -140,7 +139,6 @@ function createSnapshot() {
         temporal: 70,
         taxonomic: 85,
         dataType: 60,
-        average: 74.3,
       },
       recommendedFilters: [],
       unsupportedClaims: [],

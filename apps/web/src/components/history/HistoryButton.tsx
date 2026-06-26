@@ -351,19 +351,6 @@ const HistoryRow = memo(function HistoryRow({
         </div>
         <div className="pointer-events-none relative mt-3 flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{formatNumber(item.recordCount)} records</Badge>
-          {typeof item.readinessAverage === 'number' && (
-            <Badge
-              variant={
-                item.readinessAverage >= 70
-                  ? 'success'
-                  : item.readinessAverage >= 40
-                    ? 'warning'
-                    : 'outline'
-              }
-            >
-              {item.readinessAverage}% ready
-            </Badge>
-          )}
           {item.analysisType ? <Badge variant="outline">{humanize(item.analysisType)}</Badge> : null}
         </div>
         {isRestoring && (

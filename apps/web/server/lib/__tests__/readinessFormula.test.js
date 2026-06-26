@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeReadiness, weightedAverageReadiness, __INTERNALS } from '../readinessFormula.js'
+import { computeReadiness, __INTERNALS } from '../readinessFormula.js'
 
 // Minimal fixture builders. Each test constructs only the fields it
 // cares about — every other field defaults to a safe shape (0 / []).
@@ -357,40 +357,14 @@ describe('rubric revisions — data type (literature-aligned lookup table)', () 
 })
 
 describe('weightedAverageReadiness', () => {
-  it('returns 0-100 integer', () => {
-    const result = weightedAverageReadiness({ spatial: 50, temporal: 50, taxonomic: 50, dataType: 50 }, makeIntent())
-    expect(Number.isInteger(result)).toBe(true)
-    expect(result).toBeGreaterThanOrEqual(0)
-    expect(result).toBeLessThanOrEqual(100)
-  })
-
-  it('uses analysis-type-specific weights (temporal trend weights temporal higher)', () => {
-    const readiness = { spatial: 100, temporal: 0, taxonomic: 100, dataType: 100 }
-    const trend = makeIntent({ analysisType: 'temporal_trend_or_abundance' })
-    const mapping = makeIntent({ analysisType: 'distribution_mapping' })
-    // Trend weights temporal at 0.40, so a 0 temporal drags the average
-    // much further down for trend than for mapping.
-    const trendAvg = weightedAverageReadiness(readiness, trend)
-    const mappingAvg = weightedAverageReadiness(readiness, mapping)
-    expect(trendAvg).toBeLessThan(mappingAvg)
-  })
-
-  it('falls back to flat 25% weights when analysisType is unknown', () => {
-    const readiness = { spatial: 80, temporal: 40, taxonomic: 60, dataType: 20 }
-    const unknown = { analysisType: 'never_seen_before' }
-    const expected = Math.round(80 * 0.25 + 40 * 0.25 + 60 * 0.25 + 20 * 0.25)
-    expect(weightedAverageReadiness(readiness, unknown)).toBe(expected)
-  })
-
-  it('weights sum to 1 for every analysis type', () => {
-    for (const weights of Object.values(__INTERNALS.ANALYSIS_TYPE_DIMENSION_WEIGHTS)) {
-      const sum = weights.spatial + weights.temporal + weights.taxonomic + weights.dataType
-      expect(sum).toBeCloseTo(1.0, 5)
-    }
-  })
-
-  it('handles missing dimension values as 0', () => {
-    expect(weightedAverageReadiness({ spatial: 50 }, makeIntent())).toBeGreaterThanOrEqual(0)
-    expect(weightedAverageReadiness({}, makeIntent())).toBe(0)
+  // IDEA.md §21.5 explicitly forbids collapsing the four readiness
+  // dimensions into a single headline score, so this function and the
+  // analysis-type-specific dimension weights have been removed. The
+  // per-dimension `computeReadiness` output is the only readiness data
+  // the app surfaces — see SupportPanel.tsx for the per-dimension bars.
+  it('is intentionally not exported (no single score per IDEA.md §21.5)', () => {
+    // This placeholder keeps the describe block in the test file so
+    // contributors notice the policy decision when reading tests.
+    expect(true).toBe(true)
   })
 })

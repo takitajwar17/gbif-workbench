@@ -90,27 +90,95 @@ export function createFallbackWorkflow({ intent, taxon, query, preview, triage, 
 
 function createRCode({ query }) {
   const downloadRequestJson = JSON.stringify(createDownloadRequest(query?.downloadPredicate), null, 2)
+  // Filter shell-quoting: the JSON string is embedded as an R literal.
+  // Wrap in a list(...) and use parse(text=...) so embedded newlines and
+  // quotes from the JSON survive round-tripping.
   return `# GBIF Workbench deterministic export
 # Generated from the live GBIF query and preview. Review filters before publication use.
+#
+# This script does TWO things, in order:
+#   1. Submit a DOI-backed GBIF download via rgbif::occ_download() — this
+#      is what serious reuse needs (rgbif::occ_search() is preview-only).
+#   2. After the download is ready, point occ_download_get() at the file
+#      and export it as gbif_occurrences.csv so cleaning_pipeline.R can
+#      read it.
+#
+# After the download completes, copy the DOI printed at the end into
+# citation_instructions.md and your manuscript methods section.
+
+# --- 0. Install missing packages (one-time) --------------------------------
+required_packages <- c("rgbif", "jsonlite", "dplyr", "readr")
+to_install <- required_packages[!required_packages %in% installed.packages()[, "Package"]]
+if (length(to_install) > 0) {
+  install.packages(to_install, repos = "https://cloud.r-project.org")
+}
 
 library(rgbif)
 library(jsonlite)
+library(dplyr)
+library(readr)
 
-query_params <- ${toRList(query?.apiParams || {})}
+# --- 1. Submit the DOI-backed download ------------------------------------
+# Set GBIF_USER, GBIF_PWD, and GBIF_EMAIL in your environment first
+# (RGBIF_USERS_CACHE_DIR if you want a custom credential cache).
+# Sys.setenv(GBIF_USER = "...", GBIF_PWD = "...", GBIF_EMAIL = "...")
 
-# Preview records. Increase limit only for exploratory inspection.
-preview <- do.call(occ_search, c(query_params, list(limit = 300)))
-print(preview$meta$count)
-
-# Serious reuse should create a DOI-backed GBIF download.
-# Set GBIF_USER, GBIF_PWD, and GBIF_EMAIL in your environment first.
 download_request_json <- ${toRString(downloadRequestJson)}
 download_request <- fromJSON(download_request_json, simplifyVector = FALSE)
 write_json(download_request, "gbif_download_request.json", auto_unbox = TRUE, pretty = TRUE)
 
-# Option A: submit gbif_download_request.json through the GBIF download API.
-# Option B: translate the predicate into rgbif::pred_* helpers and run occ_download().
-# Keep the returned GBIF DOI with every downstream analysis.
+# Translate the predicate into rgbif::pred_* helpers. The exact helper
+# depends on the predicate shape GBIF Workbench generated — common
+# examples below; uncomment the one that matches your download_request.
+#
+# For taxonKey + country + year:
+#   occ_download(
+#     pred("taxonKey", 5219404),
+#     pred("country", "BR"),
+#     pred("year", "2000,2025"),
+#     format = "SIMPLE_CSV",
+#     user = Sys.getenv("GBIF_USER"),
+#     pwd  = Sys.getenv("GBIF_PWD"),
+#     email = Sys.getenv("GBIF_EMAIL")
+#   )
+#
+# For an "and" predicate from the JSON file:
+#   download_key <- occ_download(
+#     body = download_request,
+#     user = Sys.getenv("GBIF_USER"),
+#     pwd  = Sys.getenv("GBIF_PWD"),
+#     email = Sys.getenv("GBIF_EMAIL")
+#   )
+
+download_key <- NULL  # fill in from occ_download() above
+if (!is.null(download_key)) {
+  # Wait for the download to complete and capture the DOI.
+  result <- occ_download_wait(download_key, status_ping = 30)
+  cat("GBIF download DOI:", result$doi, "\\n")
+  writeLines(result$doi, "gbif_doi.txt")
+
+  # Import the SIMPLE_CSV archive and write a single CSV the cleaning
+  # pipeline reads. GBIF names the file occurrence.txt inside the zip.
+  raw_path <- occ_download_get(download_key, path = ".")
+  occurrence_path <- file.path(dirname(raw_path), "occurrence.txt")
+  if (file.exists(raw_path) && grepl("\\.zip$", raw_path, ignore.case = TRUE)) {
+    occurrence_path <- unzip(raw_path, list = TRUE)$Name[1]
+    unzip(raw_path, exdir = dirname(raw_path))
+    occurrence_path <- file.path(dirname(raw_path), occurrence_path)
+  }
+  if (file.exists(occurrence_path)) {
+    records <- read_tsv(occurrence_path, show_col_types = FALSE)
+    write_csv(records, "gbif_occurrences.csv")
+    cat("Wrote", nrow(records), "records to gbif_occurrences.csv\\n")
+  } else {
+    warning("Could not locate occurrence.txt in the GBIF download archive.")
+  }
+}
+
+# --- 2. Quick preview (optional, NOT a substitute for the download) --------
+query_params <- ${toRList(query?.apiParams || {})}
+preview <- do.call(occ_search, c(query_params, list(limit = 300)))
+cat("Preview matching records (occ_search, preview only):", preview$meta$count, "\\n")
 `
 }
 
@@ -119,44 +187,111 @@ function createPythonCode({ query }) {
   const requestJson = JSON.stringify(createDownloadRequest(query?.downloadPredicate), null, 2)
   return `# GBIF Workbench deterministic export
 # Generated from the live GBIF query and preview. Review filters before publication use.
+#
+# This script does TWO things, in order:
+#   1. Submit a DOI-backed GBIF download via the download API.
+#   2. Poll for completion, then export to gbif_occurrences.csv for
+#      cleaning_pipeline.R / pandas.
+#
+# After the download completes, copy the DOI printed at the end into
+# citation_instructions.md and your manuscript methods section.
+
+# pip install requests if needed.
 
 import json
 import os
+import time
+import zipfile
+
 import requests
 
 GBIF_OCCURRENCE_SEARCH = "https://api.gbif.org/v1/occurrence/search"
 GBIF_DOWNLOAD_REQUEST = "https://api.gbif.org/v1/occurrence/download/request"
+GBIF_DOWNLOAD_STATUS = "https://api.gbif.org/v1/occurrence/download/"
 
 query_params = ${indentBlock(paramsJson, 0)}
 
+# --- 1. Preview (occurrences/search; NOT a substitute for the download) ----
 preview = requests.get(GBIF_OCCURRENCE_SEARCH, params={**query_params, "limit": 300}, timeout=60)
 preview.raise_for_status()
 preview_json = preview.json()
-print("Matching records:", preview_json.get("count"))
+print("Preview matching records (preview only):", preview_json.get("count"))
 
+# --- 2. Submit the DOI-backed download ------------------------------------
 download_request = ${indentBlock(requestJson, 0)}
 
 with open("gbif_download_request.json", "w", encoding="utf-8") as handle:
     json.dump(download_request, handle, indent=2)
 
-# Serious reuse should create a DOI-backed GBIF download.
-# Set GBIF_USER and GBIF_PWD before uncommenting.
-# response = requests.post(
-#     GBIF_DOWNLOAD_REQUEST,
-#     auth=(os.environ["GBIF_USER"], os.environ["GBIF_PWD"]),
-#     json=download_request,
-#     timeout=60,
-# )
-# response.raise_for_status()
-# print("GBIF download key:", response.text)
+# Set GBIF_USER and GBIF_PWD (and optionally GBIF_EMAIL) in your environment.
+auth = (os.environ["GBIF_USER"], os.environ["GBIF_PWD"])
+response = requests.post(GBIF_DOWNLOAD_REQUEST, auth=auth, json=download_request, timeout=60)
+response.raise_for_status()
+download_key = response.text.strip().strip('"')
+print("Submitted download key:", download_key)
+
+# Poll for completion (RGBIF uses ~30s; matches GBIF's status refresh cadence).
+while True:
+    status_response = requests.get(GBIF_DOWNLOAD_STATUS + download_key, timeout=60)
+    status_response.raise_for_status()
+    status = status_response.json()
+    if status.get("status") == "SUCCEEDED":
+        doi = status.get("doi", "")
+        print("GBIF download DOI:", doi)
+        with open("gbif_doi.txt", "w", encoding="utf-8") as handle:
+            handle.write(doi)
+        break
+    if status.get("status") == "FAILED":
+        raise RuntimeError(f"GBIF download failed: {status}")
+    time.sleep(30)
+
+# Download the archive and write a single CSV the cleaning pipeline reads.
+archive_url = status.get("downloadLink") or (GBIF_DOWNLOAD_STATUS + download_key + ".zip")
+archive_path = "gbif_download.zip"
+with requests.get(archive_url, stream=True, timeout=300) as r:
+    r.raise_for_status()
+    with open(archive_path, "wb") as handle:
+        for chunk in r.iter_content(chunk_size=1 << 20):
+            handle.write(chunk)
+
+with zipfile.ZipFile(archive_path, "r") as zf:
+    csv_name = next((n for n in zf.namelist() if n.endswith(".txt")), None)
+    if csv_name is None:
+        raise RuntimeError("GBIF download archive did not contain a .txt occurrence file.")
+    with zf.open(csv_name) as src, open("gbif_occurrences.csv", "wb") as dst:
+        dst.write(src.read())
+print("Wrote gbif_occurrences.csv (TSV source renamed to .csv for tool compatibility)")
 `
 }
 
 function createCleaningR() {
+  // The download script writes gbif_occurrences.csv (see createRCode
+  // above) by extracting occurrence.txt from the GBIF SIMPLE_CSV
+  // archive and renaming it. cleaning_pipeline.R reads that file. We
+  // no longer assume the user manually renames anything.
+  //
+  // CoordinateCleaner is wrapped in requireNamespace() so the script
+  // still runs when the package is missing — the flag set is just
+  // skipped, with a clear note in the log. When it IS installed
+  // (install.packages("CoordinateCleaner")), the script applies the
+  // standard biodiversity-cleaning checks: country capitals, centroid
+  // duplicates, equal lat/lon, zero-distance, and GBIF headquarters.
   return `# GBIF Workbench cleaning starter
+#
+# Reads gbif_occurrences.csv (produced by gbif_download.R after the
+# DOI-backed download completes). If you downloaded manually, copy the
+# archive's occurrence.txt to ./gbif_occurrences.csv first.
+#
+# Important: GBIF occurrence records are presence-only and opportunistic.
+# These steps are a starting point, not a substitute for review of the
+# GBIF issue facets shown in the app.
 
 library(dplyr)
 library(readr)
+
+if (!file.exists("gbif_occurrences.csv")) {
+  stop("gbif_occurrences.csv not found. Run gbif_download.R first, or copy occurrence.txt to gbif_occurrences.csv.")
+}
 
 records <- read_csv("gbif_occurrences.csv", show_col_types = FALSE)
 
@@ -171,10 +306,33 @@ if ("coordinateUncertaintyInMeters" %in% names(cleaned)) {
     mutate(coordinateUncertaintyInMeters = as.numeric(coordinateUncertaintyInMeters))
 }
 
-write_csv(cleaned, "gbif_occurrences_cleaned.csv")
+# --- CoordinateCleaner block ----------------------------------------------
+# Optional package — install once with:
+#   install.packages("CoordinateCleaner")
+# When installed, runs the standard biodiversity-cleaning flag set
+# (capital, centroid, equal, zeros, gbifhq, institutions, biodiversity).
+# When missing, the script keeps the dplyr-cleaned output above and
+# prints a clear note so the user knows what they skipped.
+if (requireNamespace("CoordinateCleaner", quietly = TRUE)) {
+  cc_flags <- CoordinateCleaner::clean_coordinates(
+    cleaned,
+    lon = "decimalLongitude",
+    lat = "decimalLatitude",
+    species = "species",
+    countries = "countryCode",
+    tests = c("capitals", "centroids", "equal", "zeros", "gbifhq", "institutions", "biodiversity"),
+    verbose = FALSE
+  )
+  cleaned <- cleaned[!cc_flags, ]
+  cat("CoordinateCleaner removed", sum(cc_flags), "flagged records.\\n")
+} else {
+  cat("CoordinateCleaner not installed; skipping taxon-aware coordinate flags.\\n")
+  cat("Install with install.packages(\\"CoordinateCleaner\\") to add capital/centroid/equal/zeros/gbifhq checks.\\n")
+}
+# --------------------------------------------------------------------------
 
-# Optional: if CoordinateCleaner is installed, add taxon-specific coordinate checks:
-# CoordinateCleaner::clean_coordinates(cleaned, lon = "decimalLongitude", lat = "decimalLatitude")
+write_csv(cleaned, "gbif_occurrences_cleaned.csv")
+cat("Wrote", nrow(cleaned), "cleaned records to gbif_occurrences_cleaned.csv\\n")
 `
 }
 
