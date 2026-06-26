@@ -1,5 +1,6 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
 import { friendlyError } from '@/lib/format'
+import { parseCountryList } from '@/lib/regions'
 import { detectOffTopicSentinel, validateResearchQuestion } from '@/lib/queryGuard'
 import type { Status } from '@/lib/status'
 import type { WorkflowGroup } from '@/constants/options'
@@ -380,12 +381,7 @@ export function useAnalyze() {
   }
 
   function updateCountries(value: string) {
-    const codes = value
-      .split(/[,\s]+/)
-      .map((code) => code.trim().toUpperCase())
-      .filter((code) => /^[A-Z]{2}$/.test(code))
-    const deduped = Array.from(new Set(codes))
-    updateIntentField('countries', deduped)
+    updateIntentField('countries', parseCountryList(value))
   }
 
   function changePreferredLanguage(value: PreferredLanguage) {

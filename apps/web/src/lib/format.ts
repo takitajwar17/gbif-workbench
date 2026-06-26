@@ -1,28 +1,31 @@
 // Pure formatters used throughout the UI. Kept in one module so any new
 // formatter follows the same import convention (`from '@/lib/format'`) and
 // stays testable in isolation from React components.
+//
+// The two `Intl.NumberFormat` instances below are hoisted to module scope:
+// `formatNumber` and `formatShare` are called from many components on every
+// render (record counts, percentages, status text). Building the formatter
+// once at module load avoids the per-call construction cost that would
+// otherwise dominate a render with many bars / stats / badges.
+// See: js-cache-function-results in the Vercel React Best Practices.
 
-export function parseYearRange(value: string) {
-  const match = value.match(/(18\d{2}|19\d{2}|20\d{2})\s*(?:-|to|through)?\s*(18\d{2}|19\d{2}|20\d{2})?/)
-  if (!match) return null
-  const start = Number(match[1])
-  const end = match[2] ? Number(match[2]) : new Date().getFullYear()
-  return { start: Math.min(start, end), end: Math.max(start, end) }
-}
+const INTEGER_FORMAT = new Intl.NumberFormat()
+const PERCENT_FORMAT = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 })
 
-export function numberOrNull(value: string) {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
-}
+// Hoisted regexes for the camelCase → "Title Case" formatter used by
+// FilterSummary on every render. The `[A-Z]` regex has no /g, so the
+// `lastIndex` mutable-state footgun from js-hoist-regexp doesn't apply.
+// See: js-hoist-regexp in the Vercel React Best Practices.
+const CAMEL_CASE_BOUNDARY = /[A-Z]/g
 
 export function formatNumber(value: number) {
   if (!Number.isFinite(value)) return '—'
-  return new Intl.NumberFormat().format(Math.round(value))
+  return INTEGER_FORMAT.format(Math.round(value))
 }
 
 export function formatShare(value: number, total: number) {
   if (!total) return '0% of matches'
-  return `${new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(value / total)} of matches`
+  return `${PERCENT_FORMAT.format(value / total)} of matches`
 }
 
 export function formatIssueName(value: string) {
@@ -34,7 +37,7 @@ export function formatIssueName(value: string) {
 }
 
 export function formatFilterName(value: string) {
-  return value.replace(/[A-Z]/g, (match) => ` ${match.toLowerCase()}`).replace(/^./, (match) => match.toUpperCase())
+  return value.replace(CAMEL_CASE_BOUNDARY, (match) => ` ${match.toLowerCase()}`).replace(/^./, (match) => match.toUpperCase())
 }
 
 export function formatFilterValue(value: string | number | boolean | string[]) {

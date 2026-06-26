@@ -1,5 +1,18 @@
 import type { GbifQuery, WorkflowPackage } from './types'
 
+// Hoisted: `escapeHtml` and the markdown → HTML fragment serializer run
+// over every line of the analysis summary (one of the slower text paths
+// in the export pipeline). Building the regexes and Intl.NumberFormat
+// once at module load is cheaper than allocating them on every call.
+// See: js-hoist-regexp + js-cache-function-results in the Vercel
+// React Best Practices.
+const EXPORT_INTEGER_FORMAT = new Intl.NumberFormat()
+const EXPORT_PERCENT_FORMAT = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 })
+const HTML_AMP = /&/g
+const HTML_LT = /</g
+const HTML_GT = />/g
+const HTML_QUOT = /"/g
+
 export async function createExportZip(workflow: WorkflowPackage, query: GbifQuery) {
   // Lazy-load jszip so its ~100KB stays out of the initial bundle. Only the
   // ZIP export button triggers this path; the other seven exports build
@@ -328,13 +341,13 @@ function formatYears(start: unknown, end: unknown) {
 
 function formatNumberField(value: unknown) {
   const number = numberValue(value)
-  return number === null ? 'Not available' : new Intl.NumberFormat().format(number)
+  return number === null ? 'Not available' : EXPORT_INTEGER_FORMAT.format(number)
 }
 
 function formatPercentField(value: unknown) {
   const number = numberValue(value)
   if (number === null) return 'Not available'
-  return new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(number)
+  return EXPORT_PERCENT_FORMAT.format(number)
 }
 
 function numberValue(value: unknown) {
@@ -455,8 +468,8 @@ function markdownToHtmlFragment(markdown: string) {
 
 function escapeHtml(value: string) {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+    .replace(HTML_AMP, '&amp;')
+    .replace(HTML_LT, '&lt;')
+    .replace(HTML_GT, '&gt;')
+    .replace(HTML_QUOT, '&quot;')
 }

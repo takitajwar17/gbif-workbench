@@ -20,6 +20,26 @@ const GROUP_DESCRIPTIONS: Record<WorkflowGroup, string> = {
   cleaning: 'Standalone R script for coordinate and taxonomy cleanup.',
 }
 
+// Hoisted option lists for the inner SubTabs. They were constructed inline
+// before, which allocated a fresh array on every WorkflowPanel render
+// (the parent rerenders whenever activeGroup or any of the four tab
+// sub-selectors changes). Stable references make the SubTabs render path
+// cheaper and let the parent diff them with reference equality.
+// See: rendering-hoist-jsx in the Vercel React Best Practices.
+const LANGUAGE_OPTIONS = [
+  { value: 'r' as const, label: 'R' },
+  { value: 'python' as const, label: 'Python' },
+]
+const QUERY_FORMAT_OPTIONS = [
+  { value: 'sql' as const, label: 'SQL' },
+  { value: 'predicate' as const, label: 'Predicate' },
+]
+const WRITEUP_SECTION_OPTIONS = [
+  { value: 'methods' as const, label: 'Methods' },
+  { value: 'citation' as const, label: 'Citation' },
+  { value: 'limitations' as const, label: 'Limitations' },
+]
+
 export function WorkflowPanel({
   workflow,
   query,
@@ -46,22 +66,24 @@ export function WorkflowPanel({
   setActiveQueryTab: (tab: 'sql' | 'predicate') => void
 }) {
   // Each group resolves to a piece of workflow text plus the right Copy label.
-  // `useMemo` keeps the prose block from recomputing its lines on unrelated
-  // parent re-renders (the write-up texts are the heaviest artifacts).
-  const codeContent = useMemo(
-    () => (activeCodeLanguage === 'r' ? workflow.rCode : workflow.pythonCode),
-    [activeCodeLanguage, workflow.rCode, workflow.pythonCode],
-  )
+  // The strings themselves live on `workflow` and are reference-stable across
+  // re-renders; the ternaries below just pick which field to read. Wrapping
+  // these in useMemo would cost more (hook bookkeeping + dep compare) than
+  // the single ternary they replace. The strings are not children of any
+  // memoized component, so there's no stability benefit either.
+  // See: rerender-simple-expression-in-memo in the Vercel React Best Practices.
+  const codeContent = activeCodeLanguage === 'r' ? workflow.rCode : workflow.pythonCode
   const codeLabel = activeCodeLanguage === 'r' ? 'R' : 'Python'
 
   const queryContent = activeQueryTab === 'sql' ? workflow.sqlCode : workflow.downloadRequestJson
   const queryLabel = activeQueryTab === 'sql' ? 'SQL' : 'Predicate'
 
-  const writeupContent = useMemo(() => {
-    if (activeWriteupTab === 'methods') return workflow.methodsText
-    if (activeWriteupTab === 'citation') return workflow.citationInstructions
-    return workflow.limitationsText
-  }, [activeWriteupTab, workflow.methodsText, workflow.citationInstructions, workflow.limitationsText])
+  const writeupContent =
+    activeWriteupTab === 'methods'
+      ? workflow.methodsText
+      : activeWriteupTab === 'citation'
+        ? workflow.citationInstructions
+        : workflow.limitationsText
   const writeupLabel =
     activeWriteupTab === 'methods' ? 'Methods' : activeWriteupTab === 'citation' ? 'Citation' : 'Limitations'
 
@@ -120,10 +142,7 @@ export function WorkflowPanel({
             label="Language"
             value={activeCodeLanguage}
             onChange={setActiveCodeLanguage}
-            options={[
-              { value: 'r', label: 'R' },
-              { value: 'python', label: 'Python' },
-            ]}
+            options={LANGUAGE_OPTIONS}
           />
           <CodeToolbar
             exportIcon={<Download />}
@@ -139,10 +158,7 @@ export function WorkflowPanel({
             label="Format"
             value={activeQueryTab}
             onChange={setActiveQueryTab}
-            options={[
-              { value: 'sql', label: 'SQL' },
-              { value: 'predicate', label: 'Predicate' },
-            ]}
+            options={QUERY_FORMAT_OPTIONS}
           />
           <CodeToolbar
             exportIcon={<Download />}
@@ -159,11 +175,7 @@ export function WorkflowPanel({
             label="Section"
             value={activeWriteupTab}
             onChange={setActiveWriteupTab}
-            options={[
-              { value: 'methods', label: 'Methods' },
-              { value: 'citation', label: 'Citation' },
-              { value: 'limitations', label: 'Limitations' },
-            ]}
+            options={WRITEUP_SECTION_OPTIONS}
           />
           <CodeToolbar
             exportIcon={<Download />}

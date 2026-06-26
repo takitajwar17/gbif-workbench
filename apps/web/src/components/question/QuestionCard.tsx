@@ -1,5 +1,5 @@
 import { ClipboardList, Loader2, Search, Shuffle, Trash2 } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -44,13 +44,20 @@ export function QuestionCard({
 }) {
   const canAnalyze = question.trim().length > 0
   const charCount = question.length
-  const charHint = useMemo(() => {
-    if (!charCount) return 'Aim for one or two sentences with the taxon, place, time window, and analysis you want.'
-    if (charCount < 40) return 'Try adding more context — a place, time window, and analysis type help the most.'
-    if (charCount > 600) return 'Long questions are fine, but the model focuses best on the first few sentences.'
-    if (intent) return 'Edit any field in the scope below — press Re-run to apply your changes.'
-    return 'Looks good. Click Analyze study to run the Workbench on this question.'
-  }, [charCount, intent])
+  // charHint is a primitive (string) result of a small if-chain. Wrapping
+  // it in useMemo costs more in hook bookkeeping + dep array compare than
+  // the work itself saves. Compute inline instead.
+  // See: rerender-simple-expression-in-memo in the Vercel React Best Practices.
+  const charHint =
+    !charCount
+      ? 'Aim for one or two sentences with the taxon, place, time window, and analysis you want.'
+      : charCount < 40
+        ? 'Try adding more context — a place, time window, and analysis type help the most.'
+        : charCount > 600
+          ? 'Long questions are fine, but the model focuses best on the first few sentences.'
+          : intent
+            ? 'Edit any field in the scope below — press Re-run to apply your changes.'
+            : 'Looks good. Click Analyze study to run the Workbench on this question.'
 
   const [prompts, setPrompts] = useState(() => pickRandomPrompts(3))
   const reshufflePrompts = useCallback(() => {

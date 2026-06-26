@@ -2,13 +2,26 @@
 // `lib/` (not `components/`) because none of these symbols touch React — they
 // are pure functions over `DataPreview` + GeoJSON. The React component that
 // consumes them lives at `components/preview/PreviewMap.tsx`.
+//
+// Bundle split:
+//   - The sync helpers (`summarizeSpatialPreview`, `formatCoordinate`, the
+//     dimension constants) and `d3-geo` / `topojson-client` types stay in the
+//     main chunk. They are tiny and let `PreviewMap` render its header text
+//     and SpatialStats immediately while the atlas chunk loads.
+//   - The 107 KB `world-atlas/countries-110m.json` is loaded on demand by
+//     `loadMapData()` via `import()`. Vite/Rolldown splits it into its own
+//     chunk so it only downloads after a successful analysis with sample
+//     points. The atlas load also pulls in `d3-geo` runtime + `topojson-client`
+//     when first called; those were previously eager too but are small relative
+//     to the JSON and stay co-located with the atlas chunk.
+//   - `loadMapData()` caches its result on the module so subsequent renders
+//     (e.g. when the user opens the panel twice) skip the network + decode.
 
 import { geoEqualEarth, geoGraticule, geoMercator, geoPath } from 'd3-geo'
 import type { GeoPermissibleObjects, GeoProjection } from 'd3-geo'
 import { feature } from 'topojson-client'
 import type { Feature, FeatureCollection, Geometry, MultiPoint, Polygon } from 'geojson'
 import type { GeometryCollection as TopoGeometryCollection, Topology } from 'topojson-specification'
-import countries110m from 'world-atlas/countries-110m.json'
 import type { DataPreview, OccurrencePoint } from './types'
 import { countryLabel } from './regions'
 
@@ -17,10 +30,22 @@ export const ZOOM_MAP_HEIGHT = 520
 export const GLOBAL_MAP_WIDTH = 260
 export const GLOBAL_MAP_HEIGHT = 136
 
-const WORLD_TOPOLOGY = countries110m as unknown as Topology
-const WORLD_OBJECTS = countries110m.objects as { countries: TopoGeometryCollection }
-const WORLD_COUNTRIES = (feature(WORLD_TOPOLOGY, WORLD_OBJECTS.countries) as FeatureCollection<Geometry>).features
+// Module-scope cache for the lazy-loaded world atlas + the projected country
+// features derived from it. The atlas JSON never changes after first load,
+// and the projected FeatureCollection is computed once and reused across all
+// analyses in the session. `worldAtlasPromise` is typed as the raw `Topology`
+// because the dynamic JSON import returns a `Topology` and the cast to the
+// `& { objects: { countries: ... } }` shape only happens inside the loader.
+let worldAtlasPromise: Promise<Topology> | null = null
+let worldCountries: Feature<Geometry>[] | null = null
+
 const WORLD_SPHERE = { type: 'Sphere' } as GeoPermissibleObjects
+
+// Hoisted: `summarizeSpatialPreview` runs the top-country percent formatting
+// on every call. Building the formatter at module load is cheaper than
+// allocating it on every call.
+// See: js-cache-function-results in the Vercel React Best Practices.
+const PERCENT_FORMAT = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 })
 
 function hasValidPoint(point: OccurrencePoint) {
   return Number.isFinite(point.lat) && Number.isFinite(point.lon) && point.lat >= -90 && point.lat <= 90 && point.lon >= -180 && point.lon <= 180
@@ -28,15 +53,21 @@ function hasValidPoint(point: OccurrencePoint) {
 
 type SpatialSummary = Exclude<ReturnType<typeof summarizeSpatialPreview>, null>
 
-function formatDegrees(value: number) {
-  return `${value.toFixed(value >= 10 ? 1 : 2)}°`
+export type MapData = {
+  zoomMap: {
+    countryPaths: { key: string; d: string }[]
+    graticulePath: string | null
+    points: { x: number; y: number; hasHighUncertainty: boolean }[]
+  }
+  globalMap: {
+    countryPaths: { key: string; d: string }[]
+    graticulePath: string | null
+    extentPath: string | null
+  }
 }
 
-function createCountryPaths(path: ReturnType<typeof geoPath>) {
-  return WORLD_COUNTRIES.map((country, index) => {
-    const d = path(country)
-    return d ? { key: `${country.id ?? index}`, d } : null
-  }).filter((item): item is { key: string; d: string } => Boolean(item))
+function formatDegrees(value: number) {
+  return `${value.toFixed(value >= 10 ? 1 : 2)}°`
 }
 
 function projectOccurrencePoints(points: OccurrencePoint[], projection: GeoProjection) {
@@ -51,6 +82,15 @@ function projectOccurrencePoints(points: OccurrencePoint[], projection: GeoProje
       }
     })
     .filter((point): point is { x: number; y: number; hasHighUncertainty: boolean } => Boolean(point))
+}
+
+function createCountryPaths(path: ReturnType<typeof geoPath>, countries: Feature<Geometry>[]) {
+  return countries
+    .map((country, index) => {
+      const d = path(country)
+      return d ? { key: `${country.id ?? index}`, d } : null
+    })
+    .filter((item): item is { key: string; d: string } => Boolean(item))
 }
 
 function createExtentFeature(extent: { minLat: number; maxLat: number; minLon: number; maxLon: number }): Feature<Polygon> {
@@ -138,7 +178,7 @@ export function summarizeSpatialPreview(preview: DataPreview) {
   const topCountry = preview.facets.countries[0]
   const topCountryText =
     topCountry && preview.counts.total
-      ? `${countryLabel(topCountry.name)} accounts for ${new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(topCountry.count / preview.counts.total)} of matching records`
+      ? `${countryLabel(topCountry.name)} accounts for ${PERCENT_FORMAT.format(topCountry.count / preview.counts.total)} of matching records`
       : 'No country facet dominated the preview response'
   const isConcentrated = (latSpan < 5 && lonSpan < 5) || (countryLabels.length <= 1 && points.length >= 10)
 
@@ -153,39 +193,73 @@ export function summarizeSpatialPreview(preview: DataPreview) {
   }
 }
 
-export function createZoomMapData(summary: SpatialSummary) {
+// Lazy-loads the world atlas JSON and decodes the country FeatureCollection.
+// Both the network fetch (Vite splits the JSON into its own chunk) and the
+// topojson → GeoJSON conversion run once per session and are memoized on the
+// module. `loadMapData()` below waits on this promise before projecting paths.
+async function loadWorldCountries(): Promise<Feature<Geometry>[]> {
+  if (worldCountries) return worldCountries
+  if (!worldAtlasPromise) {
+    worldAtlasPromise = (async () => {
+      // The JSON is the expensive payload (~107 KB raw). The d3-geo /
+      // topojson-client modules are already in the main chunk so they
+      // contribute nothing extra to the network cost.
+      const { default: countries110m } = await import('world-atlas/countries-110m.json')
+      return countries110m as unknown as Topology
+    })()
+  }
+  const atlas = await worldAtlasPromise
+  const countries = (atlas as unknown as { objects: { countries: TopoGeometryCollection } }).objects.countries
+  worldCountries = (feature(atlas, countries) as FeatureCollection<Geometry>).features
+  return worldCountries
+}
+
+// Async: dynamically imports the world atlas, then projects the country
+// outlines + sample points for both the zoomed sample view and the global
+// locator. Callers should treat this as a one-shot resource fetch — the
+// resulting `MapData` is small and re-projecting for a new `summary` is
+// cheap, so we don't cache the projections themselves.
+export async function loadMapData(summary: SpatialSummary): Promise<MapData> {
+  const countries = await loadWorldCountries()
+  return buildMapData(summary, countries)
+}
+
+function buildMapData(summary: SpatialSummary, countries: Feature<Geometry>[]): MapData {
   const paddedExtent = padExtent(summary.extent, 0.5)
-  const projection = geoMercator().fitExtent(
+  const zoomProjection = geoMercator().fitExtent(
     [
       [24, 24],
       [ZOOM_MAP_WIDTH - 24, ZOOM_MAP_HEIGHT - 24],
     ],
     createExtentPointFeature(paddedExtent),
   )
-  const path = geoPath(projection)
-  const graticule = geoGraticule().step([chooseGraticuleStep(paddedExtent.maxLon - paddedExtent.minLon), chooseGraticuleStep(paddedExtent.maxLat - paddedExtent.minLat)])()
+  const zoomPath = geoPath(zoomProjection)
+  const zoomGraticule = geoGraticule().step([
+    chooseGraticuleStep(paddedExtent.maxLon - paddedExtent.minLon),
+    chooseGraticuleStep(paddedExtent.maxLat - paddedExtent.minLat),
+  ])()
 
-  return {
-    countryPaths: createCountryPaths(path),
-    graticulePath: path(graticule),
-    points: projectOccurrencePoints(summary.points, projection),
-  }
-}
-
-export function createGlobalMapData(summary: SpatialSummary) {
-  const projection = geoEqualEarth().fitExtent(
+  const globalProjection = geoEqualEarth().fitExtent(
     [
       [6, 6],
       [GLOBAL_MAP_WIDTH - 6, GLOBAL_MAP_HEIGHT - 6],
     ],
     WORLD_SPHERE,
   )
-  const path = geoPath(projection)
-  const graticule = geoGraticule().step([60, 30])()
+  const globalPath = geoPath(globalProjection)
+  const globalGraticule = geoGraticule().step([60, 30])()
+
   return {
-    countryPaths: createCountryPaths(path),
-    graticulePath: path(graticule),
-    extentPath: path(createExtentFeature(padExtent(summary.extent, 0.25))),
+    zoomMap: {
+      countryPaths: createCountryPaths(zoomPath, countries),
+      graticulePath: zoomPath(zoomGraticule),
+      points: projectOccurrencePoints(summary.points, zoomProjection),
+    },
+    globalMap: {
+      countryPaths: createCountryPaths(globalPath, countries),
+      graticulePath: globalPath(globalGraticule),
+      extentPath: globalPath(createExtentFeature(padExtent(summary.extent, 0.25))),
+    },
   }
 }
 

@@ -39,6 +39,15 @@ import type { AnalysisType, PreferredLanguage, StudyIntent, TaxonResolution } fr
 
 type TextRow = 'taxon' | 'region' | 'countries' | 'years'
 
+// Strip non-digits from the year inputs. Hoisted to module scope because
+// `parse()` runs on every keystroke into the year editor — building the
+// regex inline would re-allocate on every character. The /g flag with
+// `.replace` is safe here because we don't iterate match state ourselves
+// (String.prototype.replace handles /g internally; it doesn't rely on
+// regex.lastIndex).
+// See: js-hoist-regexp in the Vercel React Best Practices.
+const NON_DIGIT = /[^\d]/g
+
 export function InterpretedScopeSummary({
   intent,
   taxon,
@@ -476,7 +485,7 @@ function InlineYearsEditor({
   const [endDraft, setEndDraft] = useState(end == null ? '' : String(end))
 
   function parse(value: string): number | null {
-    const trimmed = value.replace(/[^\d]/g, '').slice(0, 4)
+    const trimmed = value.replace(NON_DIGIT, '').slice(0, 4)
     if (!trimmed) return null
     const n = Number(trimmed)
     return Number.isFinite(n) && n > 0 ? n : null

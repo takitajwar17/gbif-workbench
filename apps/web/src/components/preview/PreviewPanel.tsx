@@ -7,6 +7,12 @@ import { countryLabel } from '@/lib/regions'
 import { formatIssueName, formatNumber, formatShare } from '@/lib/format'
 import type { DataPreview } from '@/lib/types'
 
+// Hoisted: the >10km share percentage is formatted once per render of the
+// coordinate-uncertainty InfoBox. Building the Intl.NumberFormat at module
+// load is cheaper than allocating it on every render.
+// See: js-cache-function-results in the Vercel React Best Practices.
+const PERCENT_FORMAT = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 })
+
 export function PreviewPanel({ preview }: { preview: DataPreview }) {
   const total = preview.counts.total
 
@@ -61,7 +67,7 @@ export function PreviewPanel({ preview }: { preview: DataPreview }) {
         <InfoBox
           title="Coordinate uncertainty"
           body={`${formatNumber(preview.coordinateUncertainty.recordsWithUncertainty)} of ${formatNumber(preview.coordinateUncertainty.sampledRecords)} sampled records report uncertainty.`}
-          detail={`Median: ${preview.coordinateUncertainty.medianMeters === null ? 'not reported' : `${formatNumber(preview.coordinateUncertainty.medianMeters)} m`}; over 10 km: ${new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(preview.coordinateUncertainty.over10kmShare)}.`}
+          detail={`Median: ${preview.coordinateUncertainty.medianMeters === null ? 'not reported' : `${formatNumber(preview.coordinateUncertainty.medianMeters)} m`}; over 10 km: ${PERCENT_FORMAT.format(preview.coordinateUncertainty.over10kmShare)}.`}
         />
         <InfoBox
           title="Sampling-event discovery"

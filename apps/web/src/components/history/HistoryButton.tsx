@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Clock3, Database, Loader2, RefreshCw, Trash2, X } from 'lucide-react'
 import { useAppAuth } from '@/auth/auth-context'
@@ -17,6 +17,18 @@ import type { HistoryListItem, HistorySnapshot } from '@/lib/types'
 // Drawer width: generous enough to show a list with full question
 // text, but never wider than the viewport on phones.
 const DRAWER_WIDTH = 'min(420px, 100vw)'
+
+// Hoisted to module scope: Intl.DateTimeFormat construction is
+// non-trivial, and this formatter is used once per history row per
+// render. Building it once at module load is significantly cheaper
+// than allocating a fresh instance per row inside the component.
+// See: js-cache-function-results in the Vercel React Best Practices.
+const HISTORY_DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
 
 // HistoryButton renders a "History" button in the header that opens a
 // full-height right-side drawer. The drawer is rendered into
@@ -76,7 +88,7 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
   // the workspace. While the fetch is in flight the row shows a
   // loading indicator and other rows are dimmed; the drawer closes
   // as soon as the snapshot lands.
-  const restoreItem = async (item: HistoryListItem) => {
+  const restoreItem = useCallback(async (item: HistoryListItem) => {
     setRestoringId(item.id)
     setError('')
     try {
@@ -92,9 +104,9 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
     } finally {
       setRestoringId('')
     }
-  }
+  }, [auth.getAuthToken, onRestore])
 
-  const removeItem = async (item: HistoryListItem) => {
+  const removeItem = useCallback(async (item: HistoryListItem) => {
     setDeletingId(item.id)
     setError('')
     try {
@@ -105,7 +117,7 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
     } finally {
       setDeletingId('')
     }
-  }
+  }, [auth.getAuthToken])
 
   // Escape closes the drawer. Bound only while open so we don't
   // intercept keystrokes meant for the rest of the app.
@@ -235,76 +247,15 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
                 {items.length > 0 && (
                   <ul className="grid gap-2" role="listbox" aria-label="Saved analyses">
                     {items.map((item) => (
-                      <li key={item.id}>
-                        <article
-                          className={cn(
-                            'group relative rounded-lg border bg-card p-3 text-card-foreground transition-colors hover:border-primary hover:bg-primary/5',
-                            restoringId === item.id && 'opacity-60',
-                          )}
-                        >
-                          {/* Whole-card click target: an absolutely-
-                              positioned <button> covers the entire
-                              card. Pointer events on the inner content
-                              are disabled (`pointer-events-none`) so
-                              clicks pass through to this overlay.
-                              The delete button re-enables pointer
-                              events and sits above the overlay in the
-                              stacking order so it remains interactive
-                              independently. */}
-                          <button
-                            type="button"
-                            className="absolute inset-0 z-0 cursor-pointer rounded-lg text-left"
-                            onClick={() => void restoreItem(item)}
-                            disabled={restoringId !== '' || deletingId === item.id}
-                            aria-label={`Load saved analysis: ${item.question}`}
-                          />
-                          <div className="pointer-events-none relative flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <h3 className="line-clamp-2 text-sm font-medium leading-5">{item.question}</h3>
-                              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                {formatHistoryDate(item.createdAt)}
-                                {item.taxonName ? ` · ${item.taxonName}` : ''}
-                                {item.regionText ? ` · ${item.regionText}` : ''}
-                              </p>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => void removeItem(item)}
-                              disabled={deletingId === item.id || restoringId !== ''}
-                              aria-label="Delete history entry"
-                              className="pointer-events-auto relative z-10 opacity-60 hover:opacity-100"
-                            >
-                              {deletingId === item.id ? <RefreshCw className="animate-spin" /> : <Trash2 />}
-                            </Button>
-                          </div>
-                          <div className="pointer-events-none relative mt-3 flex flex-wrap items-center gap-2">
-                            <Badge variant="secondary">{formatNumber(item.recordCount)} records</Badge>
-                            {typeof item.readinessAverage === 'number' && (
-                              <Badge
-                                variant={
-                                  item.readinessAverage >= 70
-                                    ? 'success'
-                                    : item.readinessAverage >= 40
-                                      ? 'warning'
-                                      : 'outline'
-                                }
-                              >
-                                {item.readinessAverage}% ready
-                              </Badge>
-                            )}
-                            {item.analysisType && (
-                              <Badge variant="outline">{humanize(item.analysisType)}</Badge>
-                            )}
-                          </div>
-                          {restoringId === item.id && (
-                            <p className="pointer-events-none relative mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                              <Loader2 className="size-3 animate-spin" /> Loading saved workflow…
-                            </p>
-                          )}
-                        </article>
-                      </li>
+                      <HistoryRow
+                        key={item.id}
+                        item={item}
+                        isRestoring={restoringId === item.id}
+                        isAnyRowBusy={restoringId !== ''}
+                        isDeleting={deletingId === item.id}
+                        onRestore={restoreItem}
+                        onDelete={removeItem}
+                      />
                     ))}
                   </ul>
                 )}
@@ -321,14 +272,104 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
 function formatHistoryDate(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'Saved analysis'
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date)
+  return HISTORY_DATE_FORMAT.format(date)
 }
 
 function humanize(value: string) {
   return value.replaceAll('_', ' ')
 }
+
+// HistoryRow is the per-item card in the history list. Wrapped in
+// React.memo so that when one row enters the "restoring" state (or
+// any other row's state changes), the other rows don't re-render.
+// Props are primitives + stable callbacks — the parent computes the
+// per-row booleans (isRestoring, isDeleting) so this component's
+// memo check stays cheap.
+//
+// See: rerender-memo and rerender-derived-state in the Vercel React
+// Best Practices.
+interface HistoryRowProps {
+  item: HistoryListItem
+  isRestoring: boolean
+  isAnyRowBusy: boolean
+  isDeleting: boolean
+  onRestore: (item: HistoryListItem) => void
+  onDelete: (item: HistoryListItem) => void
+}
+
+const HistoryRow = memo(function HistoryRow({
+  item,
+  isRestoring,
+  isAnyRowBusy,
+  isDeleting,
+  onRestore,
+  onDelete,
+}: HistoryRowProps) {
+  return (
+    <li>
+      <article
+        className={cn(
+          'group relative rounded-lg border bg-card p-3 text-card-foreground transition-colors hover:border-primary hover:bg-primary/5',
+          isRestoring && 'opacity-60',
+        )}
+      >
+        {/* Whole-card click target: an absolutely-positioned <button>
+            covers the entire card. Pointer events on the inner content
+            are disabled (`pointer-events-none`) so clicks pass through
+            to this overlay. The delete button re-enables pointer
+            events and sits above the overlay in the stacking order so
+            it remains interactive independently. */}
+        <button
+          type="button"
+          className="absolute inset-0 z-0 cursor-pointer rounded-lg text-left"
+          onClick={() => void onRestore(item)}
+          disabled={isAnyRowBusy || isDeleting}
+          aria-label={`Load saved analysis: ${item.question}`}
+        />
+        <div className="pointer-events-none relative flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h3 className="line-clamp-2 text-sm font-medium leading-5">{item.question}</h3>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {formatHistoryDate(item.createdAt)}
+              {item.taxonName ? ` · ${item.taxonName}` : ''}
+              {item.regionText ? ` · ${item.regionText}` : ''}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => void onDelete(item)}
+            disabled={isDeleting || isAnyRowBusy}
+            aria-label="Delete history entry"
+            className="pointer-events-auto relative z-10 opacity-60 hover:opacity-100"
+          >
+            {isDeleting ? <RefreshCw className="animate-spin" /> : <Trash2 />}
+          </Button>
+        </div>
+        <div className="pointer-events-none relative mt-3 flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">{formatNumber(item.recordCount)} records</Badge>
+          {typeof item.readinessAverage === 'number' && (
+            <Badge
+              variant={
+                item.readinessAverage >= 70
+                  ? 'success'
+                  : item.readinessAverage >= 40
+                    ? 'warning'
+                    : 'outline'
+              }
+            >
+              {item.readinessAverage}% ready
+            </Badge>
+          )}
+          {item.analysisType ? <Badge variant="outline">{humanize(item.analysisType)}</Badge> : null}
+        </div>
+        {isRestoring && (
+          <p className="pointer-events-none relative mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" /> Loading saved workflow…
+          </p>
+        )}
+      </article>
+    </li>
+  )
+})

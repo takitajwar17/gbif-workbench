@@ -4,9 +4,19 @@ import { riskWeight } from '@/lib/risk'
 import type { Risk } from '@/lib/types'
 
 export function RiskPanel({ risks }: { risks: Risk[] }) {
-  const sorted = [...risks].sort((a, b) => riskWeight(b.level) - riskWeight(a.level))
-  const blocking = sorted.filter((risk) => risk.level === 'BLOCKING').length
-  const high = sorted.filter((risk) => risk.level === 'HIGH').length
+  // Single pass that sorts (immutably) AND tallies the blocking/high
+  // counts in one go, instead of a sort + two .filter() scans. For a
+  // typical 3–7-risk LLM response this is microseconds, but on a larger
+  // risk array the count-by-level tally only needs to walk the array once.
+  // See: js-combine-iterations + js-tosorted-immutable in the Vercel
+  // React Best Practices.
+  const sorted = risks.toSorted((a, b) => riskWeight(b.level) - riskWeight(a.level))
+  let blocking = 0
+  let high = 0
+  for (const risk of sorted) {
+    if (risk.level === 'BLOCKING') blocking += 1
+    else if (risk.level === 'HIGH') high += 1
+  }
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-2">
