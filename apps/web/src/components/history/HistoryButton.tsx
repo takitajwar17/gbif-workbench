@@ -107,6 +107,8 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
   }, [auth.getAuthToken, onRestore])
 
   const removeItem = useCallback(async (item: HistoryListItem) => {
+    const confirmed = window.confirm(`Delete this saved analysis? This can't be undone.\n\n"${item.question}"`)
+    if (!confirmed) return
     setDeletingId(item.id)
     setError('')
     try {

@@ -33,7 +33,7 @@ function App() {
             </span>
             <span className="min-w-0">
               <strong className="block truncate text-sm font-semibold">GBIF Workbench</strong>
-              <span className="block truncate text-xs text-muted-foreground">Pre-download research triage</span>
+              <span className="block truncate text-xs text-muted-foreground">Scope and triage before you download</span>
             </span>
           </a>
           <nav className="hidden items-center gap-1 text-sm text-muted-foreground md:flex" aria-label="Primary navigation">
@@ -103,10 +103,10 @@ function App() {
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
             <div className="space-y-2">
               <h1 className="max-w-4xl text-2xl font-semibold tracking-normal text-foreground md:text-3xl">
-                Scope a GBIF study before downloading data.
+                Is GBIF the right data for your research? Find out in seconds.
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
-                Turn a biodiversity research question into GBIF filters, live availability checks, claim triage, and reproducible workflow exports.
+                Get a fitness-for-use verdict on your data, the filters that match your scope, bias and limitation checks, and reproducible R / Python / SQL, without committing to a download.
               </p>
             </div>
             <StatusCard status={state.status} preview={state.preview} topRisk={state.topRisk} />
@@ -186,7 +186,7 @@ function App() {
         </section>
       </main>
       <footer className="shrink-0 border-t bg-background/95 px-4 py-3 text-center text-xs leading-5 text-muted-foreground lg:px-6">
-        GBIF Workbench is an independent research tool for working with GBIF-mediated data. It is not an official GBIF service.
+        GBIF Workbench is a research tool for triaging GBIF data before you download it. It is independent — not affiliated with GBIF.org — but reads from the same public API you would.
       </footer>
     </div>
   )

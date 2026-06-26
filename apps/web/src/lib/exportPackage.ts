@@ -224,7 +224,7 @@ export function createAnalysisSummary(workflow: WorkflowPackage) {
     '',
     '## Support classification',
     bullet('Headline', stringValue(support.headline, 'Not supplied')),
-    listSection('Strongly supported', arrayValue(support.stronglySupported), formatStringItem, 'None listed'),
+    listSection('What GBIF can answer directly', arrayValue(support.stronglySupported), formatStringItem, 'None listed'),
     listSection('Conditionally supported', arrayValue(support.conditionallySupported), formatStringItem, 'None listed'),
     listSection('Exploratory only', arrayValue(support.exploratoryOnly), formatStringItem, 'None listed'),
     listSection('Not supported with occurrence-only data', arrayValue(support.notSupportedWithOccurrenceOnly), formatStringItem, 'None listed'),

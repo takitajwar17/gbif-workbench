@@ -46,7 +46,7 @@ export function SupportPanel({ triage }: { triage: TriageResult }) {
       </div>
 
       <div className="space-y-3">
-        <SupportGroup title="Strongly supported" items={triage.support.stronglySupported} tone="good" />
+        <SupportGroup title="What GBIF can answer directly" items={triage.support.stronglySupported} tone="good" />
         <SupportGroup title="Conditionally supported" items={triage.support.conditionallySupported} tone="caution" />
         <SupportGroup title="Exploratory only" items={triage.support.exploratoryOnly} tone="caution" />
         <SupportGroup title="Not supported by occurrence-only data" items={triage.support.notSupportedWithOccurrenceOnly} tone="danger" />

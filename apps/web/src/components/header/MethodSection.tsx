@@ -17,13 +17,13 @@ export function MethodSection() {
         </div>
         <div className="grid gap-2 text-sm">
           <Badge variant="outline" className="justify-start py-1.5">
-            Structured outputs from OpenAI
+            OpenAI-powered scope and triage
           </Badge>
           <Badge variant="outline" className="justify-start py-1.5">
             GBIF taxon keys and dataset metadata
           </Badge>
           <Badge variant="outline" className="justify-start py-1.5">
-            Citation-ready methods and limitations text
+            Editable drafts for your methods section
           </Badge>
         </div>
       </CardContent>

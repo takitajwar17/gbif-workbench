@@ -15,9 +15,9 @@ export function StatusCard({ status, preview, topRisk }: { status: Status; previ
             {status === 'ready' && preview
               ? `${formatNumber(preview.counts.total)} matching records in the current preview.`
               : status === 'interpreting'
-                ? 'Reading your question and extracting scope. This usually takes a few seconds.'
+                ? 'Reading your question and extracting scope. This usually takes 3–8 seconds.'
                 : status === 'previewing'
-                  ? 'Querying GBIF and classifying risks. May take 5–15 seconds on first run.'
+                  ? 'Querying GBIF and classifying risks. May take 5–15 seconds the first time GBIF is hit.'
                   : status === 'generating'
                     ? 'Triage is ready above. The reproducible workflow streams in behind it — usually 5–15 seconds.'
                     : status === 'error'

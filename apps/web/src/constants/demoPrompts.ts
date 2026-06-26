@@ -21,7 +21,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Lion distribution model',
     question:
-      'Can GBIF-mediated occurrence records support a species distribution model for Panthera leo across sub-Saharan Africa?',
+      'Can GBIF occurrence records support a species distribution model for Panthera leo across sub-Saharan Africa?',
   },
   {
     label: 'Snow leopard highlands',
@@ -51,7 +51,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Primate conservation',
     question:
-      'What is the GBIF-mediated distribution of the western gorilla (Gorilla gorilla) and which countries hold the most occurrence records?',
+      'What is the distribution of the western gorilla (Gorilla gorilla) on GBIF, and which countries hold the most occurrence records?',
   },
 
   // ---- Birds ----
@@ -73,7 +73,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Owl distribution',
     question:
-      'Compare the GBIF-mediated distribution of tawny owls (Strix aluco) across Britain, France, and Germany in the last decade.',
+      'Compare the distribution of tawny owls (Strix aluco) on GBIF across Britain, France, and Germany in the last decade.',
   },
   {
     label: 'Songbird phenology',
@@ -86,9 +86,9 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
       'What is the spatial distribution of emperor penguin (Aptenodytes forsteri) colonies in Antarctica according to GBIF, and which datasets contribute the most records?',
   },
   {
-    label: 'Hummingbird diversity',
+    label: 'Hummingbird species richness across the Andes',
     question:
-      'How does hummingbird (Trochilidae) species richness vary by country in the Andes according to GBIF-mediated occurrence records?',
+      'How does hummingbird (Trochilidae) species richness vary by country in the Andes according to GBIF occurrence records?',
   },
 
   // ---- Reptiles & amphibians ----
@@ -136,12 +136,12 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Firefly observations',
     question:
-      'What is the GBIF-mediated distribution of common fireflies (Lampyris noctiluca) in Europe, and how many records are citizen-science derived?',
+      'What is the distribution of common fireflies (Lampyris noctiluca) on GBIF in Europe, and how many records are citizen-science derived?',
   },
 
   // ---- Marine & freshwater ----
   {
-    label: 'Coral reef fish',
+    label: 'Coral reef fish across the Indo-Pacific',
     question:
       'What does GBIF tell us about the geographic distribution and habitat associations of coral reef fish in the Indo-Pacific?',
   },
@@ -158,7 +158,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Freshwater mussels',
     question:
-      'What is the GBIF-mediated distribution of freshwater mussels (Unionidae) in North America, and are records declining since 2000?',
+      'What is the distribution of freshwater mussels (Unionidae) on GBIF in North America, and are records declining since 2000?',
   },
   {
     label: 'Seabird hotspots',
@@ -168,7 +168,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
 
   // ---- Plants & fungi ----
   {
-    label: 'Forest phenology',
+    label: 'European beech flowering shifts',
     question:
       'Use GBIF plant occurrence records to study shifts in European beech (Fagus sylvatica) flowering phenology over the last 40 years.',
   },
@@ -183,21 +183,21 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
       'Where are the GBIF record hotspots for wild orchids (Orchidaceae) in tropical Africa, and which datasets contribute the most records?',
   },
   {
-    label: 'Mushroom seasonality',
+    label: 'Porcini fruiting-season trends',
     question:
       'What does GBIF tell us about fruiting-season trends in common porcini mushrooms (Boletus edulis) across Europe?',
   },
   {
     label: 'Urban flora',
     question:
-      'How does urban-rural plant species richness differ across German cities according to GBIF-mediated occurrence records?',
+      'How does urban-rural plant species richness differ across German cities according to GBIF occurrence records?',
   },
 
   // ---- Multi-taxon / biome-scale ----
   {
     label: 'Amazon biodiversity',
     question:
-      'What is the GBIF-mediated distribution and richness of mammals, birds, and amphibians across the Amazon basin since 2010?',
+      'What is the distribution and richness of mammals, birds, and amphibians on GBIF across the Amazon basin since 2010?',
   },
   {
     label: 'African savanna',
@@ -210,7 +210,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
       'What does GBIF tell us about reef-fish and coral species richness across the Coral Triangle region?',
   },
   {
-    label: 'Boreal biome shifts',
+    label: 'Boreal tree northward shifts',
     question:
       'Can GBIF records detect northward shifts of boreal tree species in Canada and Russia over the past three decades?',
   },

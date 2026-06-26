@@ -9,7 +9,7 @@ export function PreviewSection({ preview }: { preview: DataPreview | null }) {
   return (
     <Card className="min-w-0">
       <CardHeader>
-        <SectionTitle icon={<Database />} title="Live data preview" description="Aggregated counts, sample points, and facet breakdowns from GBIF for your current scope." />
+        <SectionTitle icon={<Database />} title="Live data preview" description="Aggregated counts, sample points, and category breakdowns from GBIF for your current scope." />
       </CardHeader>
       <CardContent>
         {preview ? (

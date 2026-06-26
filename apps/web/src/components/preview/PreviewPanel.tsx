@@ -23,7 +23,7 @@ export function PreviewPanel({ preview }: { preview: DataPreview }) {
           <AlertTriangle className="col-start-1 row-span-2 mt-0.5 size-4" />
           <AlertTitle>No matching records</AlertTitle>
           <AlertDescription>
-            GBIF returned 0 records for this scope. Try broadening the time window, removing country filters, or picking a higher taxonomic rank.
+            GBIF returned 0 records for this scope. Try broadening the time window, removing country filters, or picking a higher taxonomic rank (e.g. genus or family).
           </AlertDescription>
         </Alert>
         <div className="rounded-lg border border-dashed bg-muted/30 p-6 text-sm text-muted-foreground">
@@ -71,7 +71,7 @@ export function PreviewPanel({ preview }: { preview: DataPreview }) {
         />
         <InfoBox
           title="Sampling-event discovery"
-          body={`${formatNumber(preview.samplingEvents.datasetHits)} dataset hits checked across ${preview.samplingEvents.countriesChecked.length ? preview.samplingEvents.countriesChecked.join(', ') : 'global GBIF'}.`}
+          body={`Sampling-event datasets carry effort and absence information that ordinary occurrence records don't — useful for trend and abundance claims. ${formatNumber(preview.samplingEvents.datasetHits)} dataset hits checked across ${preview.samplingEvents.countriesChecked.length ? preview.samplingEvents.countriesChecked.join(', ') : 'global GBIF'}.`}
           detail={preview.samplingEvents.note}
         />
       </div>

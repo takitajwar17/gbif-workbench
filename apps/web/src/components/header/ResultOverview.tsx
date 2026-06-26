@@ -49,9 +49,9 @@ export function ResultOverview({ preview, triage, workflow }: { preview: DataPre
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-            <SummaryStat label="Usable records" value={formatNumber(preview.counts.withUsableCoordinates)} />
+            <SummaryStat label="Usable coordinates" value={formatNumber(preview.counts.withUsableCoordinates)} />
             <SummaryStat
-              label="Average readiness"
+              label="Overall readiness"
               value={`${readinessAverage}/100`}
               detail={readinessAverage >= 70 ? 'Strong' : readinessAverage >= 40 ? 'Mixed' : 'Weak'}
             />
