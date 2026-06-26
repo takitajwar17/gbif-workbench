@@ -252,13 +252,9 @@ async function createStructuredJson({
     throw new Error('OPENAI_API_KEY is missing. Add it to apps/web/.env before running GBIF Workbench.')
   }
 
-  // We deliberately do NOT pass `temperature`. Reasoning models
-  // (`o-series`, `gpt-5-series` family — including our default
-  // `gpt-5.4-mini`) reject the `temperature` parameter with
-  // "Unsupported parameter: 'temperature' is not supported with this
-  // model." Determinism on reasoning models comes from
-  // `reasoning.effort`, not from temperature. The `temperature` arg is
-  // dropped on the wire.
+  // We deliberately do NOT pass `temperature`. Reasoning models can
+  // reject it, and determinism for this path is controlled through
+  // `reasoning.effort`, strict schemas, validation, and fallbacks.
   function buildPayload(tokenBudget) {
     return {
       model,

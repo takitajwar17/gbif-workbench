@@ -1,6 +1,16 @@
 # GBIF Workbench
 
+[![CI](https://github.com/takitajwar17/gbif-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/takitajwar17/gbif-workbench/actions/workflows/ci.yml)
+
 GBIF Workbench is a bias-aware pre-download research triage tool for GBIF-mediated biodiversity data. It helps users decide whether, when, and how GBIF data can support a proposed study before they request a full download.
+
+GBIF Workbench is independent software. It is not affiliated with, endorsed by, or operated by GBIF.org.
+
+Public app: https://gbifworkbench.org/
+
+Source repository: https://github.com/takitajwar17/gbif-workbench
+
+License: MIT
 
 The app uses a small Node/Express API. OpenAI structured outputs interpret the user's research question and generate richer study assessment/workflow text, while deterministic fallback paths keep triage and exports usable if optional AI calls time out. Public GBIF APIs resolve taxa and fetch live occurrence-preview facts. The browser renders only live API results; demo prompts are only text starters and never load canned GBIF output.
 
@@ -21,20 +31,23 @@ GBIF Workbench is deliberately not a generic biodiversity chatbot, not a full mo
 ```bash
 cd apps/web
 npm install
+cp .env.example .env
 npm run dev
 ```
 
-Create `apps/web/.env` from `apps/web/.env.example`, add `OPENAI_API_KEY`, then run the Clerk CLI setup in `apps/web` to pull the Clerk keys:
+Fill `apps/web/.env` with:
 
-```bash
-clerk auth login
-clerk init --app app_3Fep5CGqjTNdmkeXjb6ETymJZFv
-```
+- `OPENAI_API_KEY`
+- `VITE_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+
+Create a Clerk app with Google sign-in enabled, then copy the publishable and secret keys into `.env`. If you use the Clerk CLI, authenticate with `clerk auth login` and initialize the local app by selecting your Clerk project interactively.
 
 Account history uses a Vercel Marketplace Neon/Postgres database. Add the Neon integration to the Vercel project and pull env vars so `DATABASE_URL` is present locally:
 
 ```bash
 cd apps/web
+vercel link
 vercel integration add neon --name gbif-workbench-history --plan free_v3 -m region=iad1 -m auth=false
 vercel env pull .env.local
 ```
@@ -45,18 +58,21 @@ Then open the local URL printed by Vite. The dev script starts both the API serv
 
 ```bash
 cd apps/web
+npm run lint
 npm run test
+npm run check:runnable
+npm run check:validator
 npm run build
 ```
 
-## MVP capabilities
+## Capabilities
 
 - Natural-language parsing for taxon, region, years, and intended analysis.
 - Demo prompt starters that populate the question field without bypassing live analysis.
 - Researcher-focused shadcn/ui + Tailwind interface with accessible forms, cards, tabs, alerts, and export controls.
 - Parse-only scope interpretation before the heavier live GBIF preview.
 - OpenAI Responses API structured outputs for intent extraction, study triage, and workflow text, with deterministic live-preview fallbacks for triage and exports.
-- Clerk account auth and Vercel-backed analysis history, with restore/delete controls for completed workflow runs.
+- Clerk account auth and Vercel-backed analysis history, with restore/delete controls for saved verdicts that update when workflow exports finish.
 - Editable interpreted scope before and after preview, including spatial resolution and user skill level.
 - GBIF Backbone taxon resolution through `species/match` and `species/search`.
 - Public GBIF occurrence preview through `occurrence/search` counts, facets, issue flags, taxonomic breakdown, coordinate uncertainty, and sample points.
@@ -70,21 +86,21 @@ npm run build
 
 The browser preview does not create a GBIF download DOI. Serious research reuse should run the generated `rgbif::occ_download()` workflow or create a GBIF download through GBIF.org/API, then cite the resulting DOI. The app makes this visible in every generated report.
 
-## Repository layout
+## Repository Layout
 
 ```text
-apps/web/                 React + Vite GBIF Workbench app with an Express API
-apps/web/server/          OpenAI, GBIF, and API route implementation
-apps/web/src/components/ui owned shadcn-style UI primitives
-apps/web/src/lib/         browser export and formatting helpers
-apps/web/src/lib/__tests__ focused utility tests
-docs/                     product, API, and guardrail documentation
-docs/prd_alignment.md     notes on IDEA.md alignment and intentional upgrades
-docs/ecosystem_research.md competition and ecosystem research summary
-docs/submission_strategy.md challenge submission strategy and checklist
-IDEA.md                   original product requirements document
+apps/web/                    React + Vite app with Express/Vercel API routes
+apps/web/server/             OpenAI, GBIF, auth, history, retry, and workflow logic
+apps/web/src/components/ui   shadcn-style UI primitives
+apps/web/src/lib/            browser export, formatting, map, and risk helpers
+docs/architecture.md         system design and request flow
+docs/configuration.md        environment, auth, database, and API setup
+docs/scientific-guardrails.md fitness-for-use language and model-output rules
+CONTRIBUTING.md              local setup and pull request expectations
+SECURITY.md                  vulnerability reporting and secret-handling policy
+CODE_OF_CONDUCT.md           contributor conduct expectations
 ```
 
-## Challenge positioning
+## Contributing
 
-GBIF Workbench targets an under-served GBIF workflow stage: research-design triage before download. The value is not a flashy visualization; it is a repeatable, transparent decision-support layer that helps users avoid common misuse of occurrence-only data.
+Issues and pull requests are welcome. Please read `CONTRIBUTING.md` and keep changes aligned with the scientific guardrails in `docs/scientific-guardrails.md`.

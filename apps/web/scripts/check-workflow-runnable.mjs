@@ -4,7 +4,7 @@
 //
 // Walks the same code paths the /api/workflow Vercel handler walks, but
 // with a hand-built fixture so it runs in any environment without an
-// OpenAI key or a GBIF download. The point is to prove the submission
+// OpenAI key or a GBIF download. The point is to prove the workflow
 // package's reproducible code actually parses in R and Python — that's
 // the strongest static guarantee we can give reviewers without booting
 // R / Python against a real GBIF archive.

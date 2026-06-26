@@ -1,4 +1,4 @@
-# API Setup
+# Configuration
 
 GBIF Workbench uses a local Express API that calls OpenAI and public GBIF endpoints. The browser never calls OpenAI directly.
 
@@ -7,16 +7,31 @@ GBIF Workbench uses a local Express API that calls OpenAI and public GBIF endpoi
 Create `apps/web/.env`:
 
 ```bash
-OPENAI_API_KEY="..."
-VITE_CLERK_PUBLISHABLE_KEY="pk_test_..."
-CLERK_SECRET_KEY="sk_test_..."
-OPENAI_MODEL_INTENT="gpt-5.4-mini"
-OPENAI_MODEL_ASSESSMENT="gpt-5.4-mini"
-OPENAI_REASONING_EFFORT_INTENT="low"
-OPENAI_REASONING_EFFORT_ASSESSMENT="low"
+OPENAI_API_KEY=
+VITE_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+OPENAI_MODEL_INTENT=gpt-5.4-mini
+OPENAI_MODEL_ASSESSMENT=gpt-5.4-mini
+OPENAI_REASONING_EFFORT_INTENT=low
+OPENAI_REASONING_EFFORT_ASSESSMENT=low
 ```
 
 The `.env` file is ignored by git. Database credentials for account history are pulled from Vercel into `apps/web/.env.local`.
+
+Optional reliability knobs:
+
+```bash
+OPENAI_INTENT_ATTEMPT_TIMEOUT_MS=20000
+OPENAI_INTENT_MAX_ATTEMPTS=2
+OPENAI_TRIAGE_ATTEMPT_TIMEOUT_MS=12000
+OPENAI_TRIAGE_MAX_ATTEMPTS=1
+OPENAI_WORKFLOW_ATTEMPT_TIMEOUT_MS=15000
+OPENAI_WORKFLOW_MAX_ATTEMPTS=1
+OPENAI_RETRY_BACKOFF_MS=1000
+GBIF_TIMEOUT_MS=90000
+GBIF_MAX_ATTEMPTS=3
+GBIF_RETRY_BACKOFF_MS=750
+```
 
 ## OpenAI usage
 
@@ -34,19 +49,14 @@ The `.env` file is ignored by git. Database credentials for account history are 
 - `GET /api/history?id=...`: requires a verified Clerk session and returns one full restorable history snapshot.
 - `DELETE /api/history?id=...`: requires a verified Clerk session and deletes one saved history entry owned by the signed-in account.
 - `POST /api/parse-intent`: requires a verified Clerk session and returns interpreted study scope without running GBIF preview or assessment.
-- `POST /api/study-plan`: requires a verified Clerk session, runs intent interpretation, GBIF taxon resolution, GBIF preview, and triage. If the optional AI triage call times out, the API returns conservative deterministic triage from the live preview.
-- `POST /api/workflow`: requires a verified Clerk session and generates exportable workflow files from the resolved intent, query, preview, and triage. Completed workflows are saved to account history when `DATABASE_URL` is configured. If the optional AI workflow call times out, the API returns deterministic R, Python, SQL, predicate, cleaning, writeup, citation, Markdown, HTML, notebook, and ZIP-ready content from the live inputs.
+- `POST /api/study-plan`: requires a verified Clerk session, runs intent interpretation, GBIF taxon resolution, GBIF preview, and triage. If `DATABASE_URL` is configured, the preview-ready result is saved to account history. If the optional AI triage call times out, the API returns conservative deterministic triage from the live preview.
+- `POST /api/workflow`: requires a verified Clerk session and generates exportable workflow files from the resolved intent, query, preview, and triage. Existing preview-ready history rows are updated when workflow exports finish. If the optional AI workflow call times out, the API returns deterministic R, Python, SQL, predicate, cleaning, writeup, citation, Markdown, HTML, notebook, and ZIP-ready content from the live inputs.
 
 ## Authentication
 
 GBIF Workbench uses Clerk for Google sign-in. The page remains public, but analysis API calls require a Clerk session token. In development, Clerk can use shared Google OAuth credentials for social sign-in. Production Clerk instances require the app's own Google OAuth credentials in the Clerk dashboard.
 
-For the linked Clerk app from the project docs, authenticate the Clerk CLI and initialize with:
-
-```bash
-clerk auth login
-clerk init --app app_3Fep5CGqjTNdmkeXjb6ETymJZFv
-```
+Create a Clerk app, enable Google sign-in, and copy the publishable and secret keys into `apps/web/.env`. If using the Clerk CLI, run `clerk auth login` and initialize by selecting your Clerk project interactively. Do not commit Clerk app identifiers or keys.
 
 The browser sends the Clerk session token as `Authorization: Bearer ...` to protected API routes. The API verifies that token with `CLERK_SECRET_KEY` before it calls OpenAI or GBIF. Set `CLERK_AUTHORIZED_PARTIES` to comma-separated app origins when you want Clerk's `azp` claim checked as well.
 
@@ -56,13 +66,14 @@ History uses a Vercel Marketplace Neon/Postgres database. Add the Neon integrati
 
 ```bash
 cd apps/web
+vercel link
 vercel integration add neon --name gbif-workbench-history --plan free_v3 -m region=iad1 -m auth=false
 vercel env pull .env.local
 ```
 
 If Vercel returns `integration_terms_acceptance_required`, open the verification URL it prints, accept the Neon Marketplace terms, then rerun the same `vercel integration add neon ...` command.
 
-The API accepts `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, or `NEON_DATABASE_URL`. On first history use, the server creates `gbif_workbench_history` with a per-user index. Each row belongs to the Clerk `userId` and stores a compact list summary plus the full JSON snapshot needed to restore the completed analysis and exports.
+The API accepts `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, or `NEON_DATABASE_URL`. On first history use, the server creates `gbif_workbench_history` with a per-user index. Each row belongs to the Clerk `userId` and stores a compact list summary plus the full JSON snapshot needed to restore the preview verdict. When workflow exports finish, the same row is updated with the export package.
 
 The API sets `store: false` for model calls. If the configured model is unavailable to the key, the server queries `/v1/models` and chooses the strongest compatible GPT model available to that account.
 
@@ -93,4 +104,4 @@ The app does not submit authenticated GBIF downloads. Instead, it generates rgbi
 
 ## Caching
 
-The server keeps short-lived in-memory GBIF API cache entries to reduce repeated preview calls during editing. Live requests still work if the cache is empty.
+The server keeps short-lived in-memory GBIF API cache entries to reduce repeated preview calls during editing. Live requests still work if the cache is empty. Transient GBIF failures, timeouts, 429s, and 5xx responses are retried with bounded exponential backoff before the user sees an error.

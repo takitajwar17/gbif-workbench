@@ -2,7 +2,21 @@
   "name": "gbif-workbench-web",
   "private": true,
   "version": "0.1.0",
+  "description": "Pre-download research triage for GBIF-mediated biodiversity data.",
+  "license": "MIT",
+  "homepage": "https://gbifworkbench.org/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/takitajwar17/gbif-workbench.git",
+    "directory": "apps/web"
+  },
+  "bugs": {
+    "url": "https://github.com/takitajwar17/gbif-workbench/issues"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "node --watch server/index.js",
@@ -15,7 +29,6 @@
     "check:runnable": "node scripts/check-workflow-runnable.mjs",
     "check:runnable:json": "node scripts/check-workflow-runnable.mjs --json",
     "check:validator": "node scripts/check-workflow-runnable.mjs --check-validator",
-    "build:examples": "node scripts/build-examples.mjs",
     "vercel-build": "npm run build",
     "deploy": "vercel --prod"
   },

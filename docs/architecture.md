@@ -5,7 +5,9 @@ five Vercel Node.js serverless endpoints. Authentication uses Clerk;
 history persistence uses a Vercel Marketplace Neon Postgres database;
 AI text generation uses OpenAI structured outputs through the Responses
 API; GBIF data is fetched live from the public GBIF API — no caching
-of occurrence payloads beyond a short server-side TTL.
+of occurrence payloads beyond a short server-side TTL. Transient GBIF
+network failures, request timeouts, rate limits, and 5xx responses are
+retried with bounded exponential backoff.
 
 The product is deliberately split into deterministic and AI-driven
 paths so an AI outage never blocks the deliverable artifact.
@@ -66,11 +68,15 @@ Browser-side
      retrieve counts, year and country facets, basis-of-record facets,
      dataset facets, issue-flag facets, taxonomic breakdown, and
      coordinate uncertainty summary.
-   Then `assessTriage` (or `createFallbackTriage` on transient AI
+   GBIF API calls use a short-lived LRU+TTL cache and retry transient
+   failures before surfacing errors. Then `assessTriage` (or
+   `createFallbackTriage` on transient AI
    failure) generates qualitative support and risk judgments grounded
    in the live preview. `normalizeTriage` overwrites the readiness
    dimensions with deterministic, repeatable values computed from the
    preview — the LLM is not allowed to fabricate readiness numbers.
+   If history storage is configured, this preview-ready verdict is
+   saved to the signed-in account immediately.
 4. The browser renders scope interpretation, GBIF preview cards,
    triage support and risk panels. The user can edit the scope and
    re-run.
@@ -82,7 +88,8 @@ Browser-side
    `python3` (`server/lib/codeValidator.js`) before being returned.
    If parsing fails, or the AI call transient-fails, the handler
    falls back to the deterministic export package so the ZIP is
-   always producible.
+   always producible. When history storage is configured, the existing
+   preview-ready history row is updated with the workflow package.
 6. The browser assembles the export ZIP in-memory with
    `src/lib/exportPackage.ts` and offers it as a download.
 
@@ -107,7 +114,7 @@ real error and the user sees it.
 
 ## Code-parse safety net
 
-LLM-emitted R and Python are not executed — submission packages are
+LLM-emitted R and Python are not executed — workflow packages are
 designed to run on the user's local machine with their own GBIF
 credentials. Instead, the emitted source is fed to
 `Rscript --vanilla --no-save -e "parse(text = …)"` and

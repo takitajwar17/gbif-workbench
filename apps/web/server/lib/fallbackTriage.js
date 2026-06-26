@@ -177,9 +177,9 @@ function fallbackHeadline(supportLevel) {
 
 // Derive a conservative support category from per-dimension readiness
 // signals. We deliberately do NOT collapse this into a single weighted
-// score (IDEA.md §21.5): each input is checked independently and the
-// lowest passing category wins, because the user's confidence in their
-// analysis is gated by its weakest dimension.
+// score: each input is checked independently and the lowest passing
+// category wins, because confidence in the analysis is gated by its
+// weakest dimension.
 function deriveSupportLevel({ coordinateShare, dateShare, dataTypeReadiness }) {
   // dataType < 50 means occurrence-only GBIF data doesn't fit the
   // analysis (e.g. trend/abundance). That's a categorical block, not

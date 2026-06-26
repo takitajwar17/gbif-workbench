@@ -1,25 +1,16 @@
-// All d3 / world-atlas / topojson logic for the spatial preview map. Lives in
-// `lib/` (not `components/`) because none of these symbols touch React — they
-// are pure functions over `DataPreview` + GeoJSON. The React component that
-// consumes them lives at `components/preview/PreviewMap.tsx`.
+// Spatial preview helpers. The synchronous functions compute summary text and
+// extents without loading map libraries. Country outlines, projections, and
+// topojson conversion are loaded only when `PreviewMap` needs to draw a map.
 //
 // Bundle split:
-//   - The sync helpers (`summarizeSpatialPreview`, `formatCoordinate`, the
-//     dimension constants) and `d3-geo` / `topojson-client` types stay in the
-//     main chunk. They are tiny and let `PreviewMap` render its header text
-//     and SpatialStats immediately while the atlas chunk loads.
-//   - The 107 KB `world-atlas/countries-110m.json` is loaded on demand by
-//     `loadMapData()` via `import()`. Vite/Rolldown splits it into its own
-//     chunk so it only downloads after a successful analysis with sample
-//     points. The atlas load also pulls in `d3-geo` runtime + `topojson-client`
-//     when first called; those were previously eager too but are small relative
-//     to the JSON and stay co-located with the atlas chunk.
+//   - Summary helpers stay in the main chunk so the panel can render text and
+//     stats immediately.
+//   - `loadMapData()` dynamically imports `d3-geo`, `topojson-client`, and the
+//     107 KB world atlas JSON after a successful analysis with sample points.
 //   - `loadMapData()` caches its result on the module so subsequent renders
 //     (e.g. when the user opens the panel twice) skip the network + decode.
 
-import { geoEqualEarth, geoGraticule, geoMercator, geoPath } from 'd3-geo'
-import type { GeoPermissibleObjects, GeoProjection } from 'd3-geo'
-import { feature } from 'topojson-client'
+import type { GeoPath, GeoPermissibleObjects, GeoProjection } from 'd3-geo'
 import type { Feature, FeatureCollection, Geometry, MultiPoint, Polygon } from 'geojson'
 import type { GeometryCollection as TopoGeometryCollection, Topology } from 'topojson-specification'
 import type { DataPreview, OccurrencePoint } from './types'
@@ -52,6 +43,7 @@ function hasValidPoint(point: OccurrencePoint) {
 }
 
 type SpatialSummary = Exclude<ReturnType<typeof summarizeSpatialPreview>, null>
+type D3GeoModule = typeof import('d3-geo')
 
 export type MapData = {
   zoomMap: {
@@ -84,7 +76,7 @@ function projectOccurrencePoints(points: OccurrencePoint[], projection: GeoProje
     .filter((point): point is { x: number; y: number; hasHighUncertainty: boolean } => Boolean(point))
 }
 
-function createCountryPaths(path: ReturnType<typeof geoPath>, countries: Feature<Geometry>[]) {
+function createCountryPaths(path: GeoPath, countries: Feature<Geometry>[]) {
   return countries
     .map((country, index) => {
       const d = path(country)
@@ -201,16 +193,13 @@ async function loadWorldCountries(): Promise<Feature<Geometry>[]> {
   if (worldCountries) return worldCountries
   if (!worldAtlasPromise) {
     worldAtlasPromise = (async () => {
-      // The JSON is the expensive payload (~107 KB raw). The d3-geo /
-      // topojson-client modules are already in the main chunk so they
-      // contribute nothing extra to the network cost.
       const { default: countries110m } = await import('world-atlas/countries-110m.json')
       return countries110m as unknown as Topology
     })()
   }
-  const atlas = await worldAtlasPromise
+  const [atlas, topojson] = await Promise.all([worldAtlasPromise, import('topojson-client')])
   const countries = (atlas as unknown as { objects: { countries: TopoGeometryCollection } }).objects.countries
-  worldCountries = (feature(atlas, countries) as FeatureCollection<Geometry>).features
+  worldCountries = (topojson.feature(atlas, countries) as FeatureCollection<Geometry>).features
   return worldCountries
 }
 
@@ -220,11 +209,12 @@ async function loadWorldCountries(): Promise<Feature<Geometry>[]> {
 // resulting `MapData` is small and re-projecting for a new `summary` is
 // cheap, so we don't cache the projections themselves.
 export async function loadMapData(summary: SpatialSummary): Promise<MapData> {
-  const countries = await loadWorldCountries()
-  return buildMapData(summary, countries)
+  const [countries, d3Geo] = await Promise.all([loadWorldCountries(), import('d3-geo')])
+  return buildMapData(summary, countries, d3Geo)
 }
 
-function buildMapData(summary: SpatialSummary, countries: Feature<Geometry>[]): MapData {
+function buildMapData(summary: SpatialSummary, countries: Feature<Geometry>[], d3Geo: D3GeoModule): MapData {
+  const { geoEqualEarth, geoGraticule, geoMercator, geoPath } = d3Geo
   const paddedExtent = padExtent(summary.extent, 0.5)
   const zoomProjection = geoMercator().fitExtent(
     [

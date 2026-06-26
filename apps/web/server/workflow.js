@@ -14,12 +14,8 @@ export function createHealthResponse() {
     service: 'gbif-workbench',
     openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
     historyConfigured: isHistoryDatabaseConfigured(),
-    intentModel:
-      process.env.OPENAI_MODEL_INTENT || process.env.OPENAI_MODEL || 'gpt-5.4-mini',
-    assessmentModel:
-      process.env.OPENAI_MODEL_ASSESSMENT ||
-      process.env.OPENAI_MODEL ||
-      'gpt-5.4-mini',
+    intentModel: process.env.OPENAI_MODEL_INTENT || process.env.OPENAI_MODEL || 'gpt-5.4-mini',
+    assessmentModel: process.env.OPENAI_MODEL_ASSESSMENT || process.env.OPENAI_MODEL || 'gpt-5.4-mini',
   }
 }
 
@@ -195,8 +191,8 @@ export function normalizeTriage(triage, intent, preview) {
   // four integers, every time. We deliberately overwrite whatever the
   // LLM returned here, so the LLM is free to put whatever it likes in
   // the schema field and the user still gets stable, repeatable scores.
-  // We do NOT add an `average` field — IDEA.md §21.5 explicitly forbids
-  // collapsing the four dimensions into one headline number.
+  // We do NOT add an `average` field. Collapsing these four dimensions
+  // into one headline number hides the weakest fitness-for-use signal.
   const readiness = computeReadiness(intent, preview)
   return {
     ...triage,

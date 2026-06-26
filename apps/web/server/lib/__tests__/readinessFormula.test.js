@@ -357,12 +357,12 @@ describe('rubric revisions — data type (literature-aligned lookup table)', () 
 })
 
 describe('weightedAverageReadiness', () => {
-  // IDEA.md §21.5 explicitly forbids collapsing the four readiness
-  // dimensions into a single headline score, so this function and the
+  // Product policy forbids collapsing the four readiness dimensions
+  // into a single headline score, so this function and the
   // analysis-type-specific dimension weights have been removed. The
   // per-dimension `computeReadiness` output is the only readiness data
   // the app surfaces — see SupportPanel.tsx for the per-dimension bars.
-  it('is intentionally not exported (no single score per IDEA.md §21.5)', () => {
+  it('is intentionally not exported', () => {
     // This placeholder keeps the describe block in the test file so
     // contributors notice the policy decision when reading tests.
     expect(true).toBe(true)

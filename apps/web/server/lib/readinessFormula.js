@@ -16,10 +16,10 @@
 //                type (per the GBIF literature)
 //
 // We deliberately do NOT collapse these four dimensions into a single
-// "average readiness" score. IDEA.md §21.5 calls this out: a single
-// weighted number invites users to overclaim ("76/100 — Strong!"), and
-// the same study can be Strong on spatial but Weak on temporal in ways
-// a flat score hides. Each dimension is reported on its own bar.
+// "average readiness" score. A single weighted number invites users to
+// overclaim ("76/100 — Strong!"), and the same study can be Strong on
+// spatial but Weak on temporal in ways a flat score hides. Each
+// dimension is reported on its own bar.
 //
 // Weights and signals were audited against published GBIF methodology
 // papers (Beck et al. 2014, Phillips et al. 2009, Araújo & Peterson

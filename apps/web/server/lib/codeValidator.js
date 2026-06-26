@@ -1,5 +1,5 @@
 // Static validation for LLM-emitted code blocks. We deliberately do not
-// run the code — submission use cases rely on the user's local R/Python
+// run the code — research workflows rely on the user's local R/Python
 // environment, which has the GBIF credentials we don't have. Instead we
 // parse the code with the actual language tool, which catches the
 // dominant failure mode (LLM emits broken syntax) without ever

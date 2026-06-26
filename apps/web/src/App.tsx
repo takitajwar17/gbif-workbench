@@ -1,17 +1,22 @@
 import { AlertTriangle, Loader2, Menu, Play, X } from 'lucide-react'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useAnalyze } from './hooks/useAnalyze'
 import { QuestionCard } from './components/question/QuestionCard'
-import { PreviewSection } from './components/preview/PreviewSection'
-import { TriageSection } from './components/triage/TriageSection'
 import { MethodSection } from './components/header/MethodSection'
 import { ResultOverview } from './components/header/ResultOverview'
 import { StatusCard } from './components/header/StatusCard'
 import { WorkflowProgress } from './components/header/WorkflowProgress'
 import { AuthControls } from './auth/AuthProvider'
 import { HistoryButton } from './components/history/HistoryButton'
+
+const PreviewSection = lazy(() =>
+  import('./components/preview/PreviewSection').then((module) => ({ default: module.PreviewSection })),
+)
+const TriageSection = lazy(() =>
+  import('./components/triage/TriageSection').then((module) => ({ default: module.TriageSection })),
+)
 
 function App() {
   const state = useAnalyze()
@@ -164,22 +169,26 @@ function App() {
           >
             <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto pr-1 pb-4 2xl:grid-cols-[minmax(0,1.05fr)_minmax(430px,0.95fr)]" data-pane-scroll>
             <ResultOverview preview={state.preview} triage={state.triage} workflow={state.workflow} />
-            <PreviewSection preview={state.preview} />
-            <TriageSection
-              triage={state.triage}
-              preview={state.preview}
-              workflow={state.workflow}
-              workflowError={state.workflowError}
-              query={state.query}
-              activeWorkflowGroup={state.activeWorkflowGroup}
-              setActiveWorkflowGroup={state.setActiveWorkflowGroup}
-              activeCodeLanguage={state.activeCodeLanguage}
-              setActiveCodeLanguage={state.setActiveCodeLanguage}
-              activeWriteupTab={state.activeWriteupTab}
-              setActiveWriteupTab={state.setActiveWriteupTab}
-              activeQueryTab={state.activeQueryTab}
-              setActiveQueryTab={state.setActiveQueryTab}
-            />
+            <Suspense fallback={<SectionFallback label="live data preview" />}>
+              <PreviewSection preview={state.preview} />
+            </Suspense>
+            <Suspense fallback={<SectionFallback label="support verdict and exports" />}>
+              <TriageSection
+                triage={state.triage}
+                preview={state.preview}
+                workflow={state.workflow}
+                workflowError={state.workflowError}
+                query={state.query}
+                activeWorkflowGroup={state.activeWorkflowGroup}
+                setActiveWorkflowGroup={state.setActiveWorkflowGroup}
+                activeCodeLanguage={state.activeCodeLanguage}
+                setActiveCodeLanguage={state.setActiveCodeLanguage}
+                activeWriteupTab={state.activeWriteupTab}
+                setActiveWriteupTab={state.setActiveWriteupTab}
+                activeQueryTab={state.activeQueryTab}
+                setActiveQueryTab={state.setActiveQueryTab}
+              />
+            </Suspense>
             <MethodSection />
             </div>
           </div>
@@ -188,6 +197,14 @@ function App() {
       <footer className="shrink-0 border-t bg-background/95 px-4 py-3 text-center text-xs leading-5 text-muted-foreground lg:px-6">
         GBIF Workbench is a research tool for triaging GBIF data before you download it. It is independent — not affiliated with GBIF.org — but reads from the same public API you would.
       </footer>
+    </div>
+  )
+}
+
+function SectionFallback({ label }: { label: string }) {
+  return (
+    <div className="min-h-32 rounded-lg border bg-card p-4 text-sm text-muted-foreground" role="status">
+      Loading {label}…
     </div>
   )
 }
