@@ -73,9 +73,23 @@ export async function writeClipboard(text: string) {
 
 export function friendlyError(message: string, fallback: string): string {
   if (!message) return fallback
-  // Map common network / API errors to user-friendly copy.
+  // Map common network / API errors to user-friendly copy. The order
+  // matters here — more specific patterns first so they don't get
+  // swallowed by the catch-all "status 5xx" branch below.
   if (/failed to fetch|networkerror|network request failed/i.test(message)) {
     return 'Could not reach the GBIF Workbench backend. Check your connection and try again.'
+  }
+  // Per-call LLM timeout — server already retried (see apps/web/server/openai.js),
+  // so the user just needs to retry the analysis. We name the cause
+  // (the AI service) so the user knows it's not their question.
+  if (/timed out before it could complete/i.test(message)) {
+    return 'The AI service took too long to respond. The backend already retried — please try the analysis again in a moment.'
+  }
+  // Truncated structured output after all retries exhausted — same
+  // shape: server retried with a bigger token budget; ask the user to
+  // try again rather than leaking parser internals.
+  if (/OpenAI returned (invalid JSON|no structured output)/i.test(message)) {
+    return 'The AI service returned an incomplete response after retrying. Please run the analysis again.'
   }
   if (/status 5\d\d/i.test(message)) {
     return 'The GBIF Workbench backend hit a temporary error. Please retry in a moment.'
