@@ -1,4 +1,4 @@
-import { assessStudy, interpretStudyIntent } from '../server/openai.js'
+import { assessTriage, interpretStudyIntent } from '../server/openai.js'
 import {
   buildGbifQuery,
   normalizeIntent,
@@ -6,13 +6,23 @@ import {
   resolveTaxon,
 } from '../server/gbif.js'
 import {
-  finalizeWorkflow,
   normalizeTriage,
   seedIntentFromOverrides,
   validateStudyPlanBody,
 } from '../server/workflow.js'
 
 // Vercel Node.js serverless function: POST /api/study-plan
+//
+// Returns intent + taxon + query + preview + triage. This is the FAST
+// half of the old combined endpoint — the heavy workflow code + report
+// generation now lives behind /api/workflow so each call stays under
+// the Vercel Hobby 60s ceiling.
+//
+// The previous combined endpoint routinely timed out because the
+// single LLM call had to produce both the triage qualitative labels
+// AND the long-form R/Python/markdown/html output in one structured
+// response. Splitting lets the user see the result card immediately
+// while /api/workflow streams the code/report in behind it.
 export default async function handler(req, res) {
   const validation = validateStudyPlanBody(req.body)
   if (!validation.ok) {
@@ -44,20 +54,8 @@ export default async function handler(req, res) {
       llmName && seedName !== llmName ? await resolveTaxon(intent) : seedTaxon
     const query = buildGbifQuery(intent, taxon)
     const preview = await previewGbifData(intent, query)
-    const assessment = await assessStudy({ intent, taxon, query, preview })
-    const triage = normalizeTriage(assessment.data.triage, intent, preview)
-    const workflow = finalizeWorkflow(assessment.data.workflow, {
-      intent,
-      taxon,
-      query,
-      preview,
-      triage,
-      models: {
-        intent: interpreted.model,
-        assessment: assessment.model,
-      },
-      generatedAt: new Date().toISOString(),
-    })
+    const assessment = await assessTriage({ intent, taxon, query, preview })
+    const triage = normalizeTriage(assessment.data, intent, preview)
 
     res.status(200).json({
       intent,
@@ -65,10 +63,9 @@ export default async function handler(req, res) {
       query,
       preview,
       triage,
-      workflow,
       models: {
         intent: interpreted.model,
-        assessment: assessment.model,
+        triage: assessment.model,
       },
     })
   } catch (error) {

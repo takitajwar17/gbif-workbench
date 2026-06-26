@@ -4,14 +4,20 @@ import type { DataPreview, Risk } from './types'
 // Status enum + helpers for the global workflow state machine. Kept separate
 // from React components so the lookup tables can be imported by any layer
 // (e.g. workflow-progress badges, status cards) without pulling in JSX.
+//
+// `generating` was added when /api/study-plan and /api/workflow were
+// split: the user sees the result card immediately while the long-form
+// code/report streams in behind it. The stepper uses this to keep the
+// Export step in its loading state until /api/workflow resolves.
 
-export type Status = 'idle' | 'interpreting' | 'previewing' | 'ready' | 'error'
+export type Status = 'idle' | 'interpreting' | 'previewing' | 'generating' | 'ready' | 'error'
 export type StepState = 'done' | 'current' | 'loading' | 'pending'
 
 const STATUS_DOT_MAP: Record<Status, string> = {
   idle: 'bg-muted-foreground/40',
   interpreting: 'bg-amber-500 animate-pulse',
   previewing: 'bg-amber-500 animate-pulse',
+  generating: 'bg-amber-500 animate-pulse',
   ready: 'bg-emerald-500',
   error: 'bg-destructive',
 }
@@ -19,6 +25,7 @@ const STATUS_DOT_MAP: Record<Status, string> = {
 export function statusText(status: Status, preview: DataPreview | null, topRisk?: Risk) {
   if (status === 'interpreting') return 'Reading your question…'
   if (status === 'previewing') return 'Querying GBIF and assessing risks…'
+  if (status === 'generating') return 'Result ready — generating workflow…'
   if (status === 'error') return 'Analysis failed'
   if (status === 'ready' && topRisk && preview) {
     return `${formatNumber(preview.counts.withUsableCoordinates)} usable records · top risk: ${topRisk.title}`

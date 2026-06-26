@@ -18,9 +18,11 @@ export function StatusCard({ status, preview, topRisk }: { status: Status; previ
                 ? 'Reading your question and extracting scope. This usually takes a few seconds.'
                 : status === 'previewing'
                   ? 'Querying GBIF and classifying risks. May take 5–15 seconds on first run.'
-                  : status === 'error'
-                    ? 'Something went wrong. Try the retry button below the error message.'
-                    : 'Live GBIF previews are generated only after analysis runs.'}
+                  : status === 'generating'
+                    ? 'Triage is ready above. The reproducible workflow streams in behind it — usually 5–15 seconds.'
+                    : status === 'error'
+                      ? 'Something went wrong. Try the retry button below the error message.'
+                      : 'Live GBIF previews are generated only after analysis runs.'}
           </p>
         </div>
       </CardContent>

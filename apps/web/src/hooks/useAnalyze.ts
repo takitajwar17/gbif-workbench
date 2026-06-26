@@ -3,7 +3,7 @@ import { friendlyError } from '@/lib/format'
 import { detectOffTopicSentinel, validateResearchQuestion } from '@/lib/queryGuard'
 import type { Status } from '@/lib/status'
 import type { WorkflowGroup } from '@/constants/options'
-import { requestStudyIntent, requestStudyPlan } from '@/components/api/api'
+import { requestStudyIntent, requestStudyPlan, requestStudyWorkflow } from '@/components/api/api'
 import type { StudyPlanRequest } from '@/components/api/api'
 import type {
   DataPreview,
@@ -32,13 +32,24 @@ import type {
 //   click Re-run button  → analyzeNow()  (re-runs study with the edited intent)
 //   click demo prompt    → selectDemoPrompt()  (set question text only — no API call)
 //
+// Two-endpoint flow (added with the /api/study-plan ↔ /api/workflow split):
+//   runStudy fires /api/study-plan (intent + taxon + query + preview + triage).
+//   When that resolves, the user sees the result card immediately. A separate
+//   background call to /api/workflow then fetches the long-form code +
+//   reports. We surface 'generating' status so the Export stepper badge
+//   spins while that call is in flight. If /api/workflow fails (e.g.
+//   60s timeout on Vercel Hobby), the result card stays usable and the
+//   user gets a friendly error in the export panel — they can re-run.
+//
 // Scope field edits are LOCAL: they merge into intent but do NOT trigger a
 // new study run. The user must press Re-run (or Analyze study) to apply.
 // This keeps multi-field edits cheap — the user can refine five fields in a
 // row without burning five LLM calls.
 //
 // Race protection: every async run increments a `runId`. Stale responses are
-// dropped so a slow interpretation never overwrites a fresh one.
+// dropped so a slow interpretation never overwrites a fresh one. The
+// workflow call also carries an AbortController so a new run cancels the
+// previous in-flight workflow fetch.
 
 export function useAnalyze() {
   const [question, setQuestion] = useState('')
@@ -50,6 +61,7 @@ export function useAnalyze() {
   const [triage, setTriage] = useState<TriageResult | null>(null)
   const [workflow, setWorkflow] = useState<WorkflowPackage | null>(null)
   const [status, setStatus] = useState<Status>('idle')
+  const [workflowError, setWorkflowError] = useState('')
   const [error, setError] = useState('')
   const [activeWorkflowGroup, setActiveWorkflowGroup] = useState<WorkflowGroup>('code')
   const [activeCodeLanguage, setActiveCodeLanguage] = useState<'r' | 'python'>('r')
@@ -60,7 +72,7 @@ export function useAnalyze() {
   // is showing data from the previous run.
   const [scopeDirty, setScopeDirty] = useState(false)
 
-  const isBusy = status === 'interpreting' || status === 'previewing'
+  const isBusy = status === 'interpreting' || status === 'previewing' || status === 'generating'
   const topRisk = triage?.risks.find((risk) => risk.level === 'BLOCKING' || risk.level === 'HIGH')
   const hasResults = Boolean(intent || taxon || preview || triage || workflow || error)
 
@@ -70,17 +82,33 @@ export function useAnalyze() {
   // Monotonic counter incremented on every async kick-off. Stale responses
   // are discarded by checking this against the value at kick-off time.
   const runIdRef = useRef(0)
+  // AbortController for the in-flight /api/workflow call. A new run cancels
+  // the previous one so the user never sees a workflow that belongs to the
+  // previous scope land on the current scope.
+  const workflowAbortRef = useRef<AbortController | null>(null)
   const clearTimers = useCallback(() => {
     // No debounce timers remain — all analysis is now triggered explicitly
     // by the Analyze study / Re-run buttons. Kept as a no-op so existing
     // call sites can stay unchanged.
   }, [])
 
+  // Cancel any in-flight /api/workflow call. Called from runStudy before
+  // it starts and from every result-clearing action so a stale workflow
+  // never lands after the user has wiped the state.
+  const cancelWorkflow = useCallback(() => {
+    if (workflowAbortRef.current) {
+      workflowAbortRef.current.abort()
+      workflowAbortRef.current = null
+    }
+  }, [])
+
   async function runStudy(payload: StudyPlanRequest, runId: number) {
     const trimmedQuestion = payload.question.trim()
     if (!trimmedQuestion) return
 
+    cancelWorkflow()
     setError('')
+    setWorkflowError('')
     setStatus('previewing')
     setTaxon(null)
     setPreview(null)
@@ -90,22 +118,87 @@ export function useAnalyze() {
     try {
       const result = await requestStudyPlan({ ...payload, question: trimmedQuestion })
       if (runId !== runIdRef.current) return // stale response, ignore
-      setStatus('ready')
+      // Render the result card immediately. The /api/workflow call runs
+      // in the background — the user does not have to wait for the long
+      // LLM call to read the result card.
+      setStatus('generating')
       startTransition(() => {
         setIntent(result.intent)
         setTaxon(result.taxon)
         setQuery(result.query)
         setPreview(result.preview)
         setTriage(result.triage)
-        setWorkflow(result.workflow)
       })
       lastSubmittedRef.current = trimmedQuestion
       setScopeDirty(false)
+      // Fire-and-forget the workflow call. We intentionally do NOT await
+      // it here — the user sees the result card while the workflow
+      // streams in behind it. Errors are caught and surfaced as a
+      // workflow-only error so the result card stays usable.
+      void runWorkflow({
+        intent: result.intent,
+        taxon: result.taxon,
+        query: result.query,
+        preview: result.preview,
+        triage: result.triage,
+        runId,
+      })
     } catch (caught) {
       if (runId !== runIdRef.current) return
       const raw = caught instanceof Error ? caught.message : 'GBIF Workbench analysis failed.'
       setError(friendlyError(raw, 'GBIF Workbench analysis failed.'))
       setStatus('error')
+    }
+  }
+
+  // Background fetch for the long-form workflow code + reports. Never
+  // throws to the caller — errors are surfaced via setWorkflowError so
+  // the result card stays usable even when /api/workflow fails.
+  async function runWorkflow({
+    intent,
+    taxon,
+    query,
+    preview,
+    triage,
+    runId,
+  }: {
+    intent: StudyIntent
+    taxon: TaxonResolution
+    query: GbifQuery
+    preview: DataPreview
+    triage: TriageResult
+    runId: number
+  }) {
+    const controller = new AbortController()
+    workflowAbortRef.current = controller
+    try {
+      const result = await requestStudyWorkflow(
+        { intent, taxon, query, preview, triage },
+        controller.signal,
+      )
+      if (runId !== runIdRef.current) return // stale response, ignore
+      if (controller.signal.aborted) return
+      startTransition(() => {
+        setWorkflow(result.workflow)
+        setWorkflowError('')
+      })
+      setStatus('ready')
+    } catch (caught) {
+      if (runId !== runIdRef.current) return
+      if (controller.signal.aborted) return
+      const raw =
+        caught instanceof Error
+          ? caught.message
+          : 'GBIF Workbench workflow generation failed.'
+      setWorkflowError(friendlyError(raw, 'GBIF Workbench workflow generation failed.'))
+      // The result card is still usable — drop the 'generating' status so
+      // the stepper Export step moves out of loading. The user can re-run
+      // to retry just the workflow.
+      setStatus('ready')
+    } finally {
+      if (workflowAbortRef.current === controller) {
+        workflowAbortRef.current = null
+      }
     }
   }
 
@@ -115,6 +208,7 @@ export function useAnalyze() {
     const validation = validateResearchQuestion(trimmed)
     if (!validation.ok) {
       // Reject early — no API call, no LLM token, no spinner flash.
+      cancelWorkflow()
       runIdRef.current += 1
       setIntent(null)
       setTaxon(null)
@@ -122,6 +216,7 @@ export function useAnalyze() {
       setPreview(null)
       setTriage(null)
       setWorkflow(null)
+      setWorkflowError('')
       setError(validation.message)
       setStatus('error')
       lastSubmittedRef.current = ''
@@ -129,10 +224,12 @@ export function useAnalyze() {
     }
     if (trimmed === lastSubmittedRef.current && intent) return // nothing changed
 
+    cancelWorkflow()
     runIdRef.current += 1
     const runId = runIdRef.current
 
     setError('')
+    setWorkflowError('')
     setStatus('interpreting')
     setTaxon(null)
     setPreview(null)
@@ -176,6 +273,7 @@ export function useAnalyze() {
     if (!trimmed) return
     const validation = validateResearchQuestion(trimmed)
     if (!validation.ok) {
+      cancelWorkflow()
       runIdRef.current += 1
       setIntent(null)
       setTaxon(null)
@@ -183,6 +281,7 @@ export function useAnalyze() {
       setPreview(null)
       setTriage(null)
       setWorkflow(null)
+      setWorkflowError('')
       setError(validation.message)
       setStatus('error')
       lastSubmittedRef.current = ''
@@ -190,6 +289,7 @@ export function useAnalyze() {
     }
     clearTimers()
     if (intent) {
+      cancelWorkflow()
       runIdRef.current += 1
       await runStudy({ question: trimmed, overrides: { ...intent, preferredLanguage } }, runIdRef.current)
     } else {
@@ -204,12 +304,14 @@ export function useAnalyze() {
     // kick off any analysis here; the user must click Analyze study to
     // run a new study.
     if (intent || taxon || preview || triage || workflow || error) {
+      cancelWorkflow()
       setIntent(null)
       setTaxon(null)
       setQuery(null)
       setPreview(null)
       setTriage(null)
       setWorkflow(null)
+      setWorkflowError('')
       setError('')
       setStatus('idle')
       lastSubmittedRef.current = ''
@@ -242,6 +344,7 @@ export function useAnalyze() {
 
   function selectDemoPrompt(prompt: string) {
     clearTimers()
+    cancelWorkflow()
     setQuestion(prompt)
     setIntent(null)
     setTaxon(null)
@@ -249,6 +352,7 @@ export function useAnalyze() {
     setPreview(null)
     setTriage(null)
     setWorkflow(null)
+    setWorkflowError('')
     setError('')
     // Demo prompts only fill the textarea — the user must press Analyze
     // study to actually run the study. No auto-interpret, no debounced
@@ -261,24 +365,27 @@ export function useAnalyze() {
 
   function clearResults() {
     clearTimers()
+    cancelWorkflow()
     setIntent(null)
     setTaxon(null)
     setQuery(null)
     setPreview(null)
     setTriage(null)
     setWorkflow(null)
+    setWorkflowError('')
     setError('')
     setStatus('idle')
     lastSubmittedRef.current = ''
     setScopeDirty(false)
   }
 
-  // Cleanup any pending timers on unmount.
+  // Cleanup any pending timers / in-flight workflow fetches on unmount.
   useEffect(() => {
     return () => {
       clearTimers()
+      cancelWorkflow()
     }
-  }, [clearTimers])
+  }, [clearTimers, cancelWorkflow])
 
   return {
     question,
@@ -299,6 +406,8 @@ export function useAnalyze() {
     setStatus,
     error,
     setError,
+    workflowError,
+    setWorkflowError,
     isBusy,
     preferredLanguage,
     setPreferredLanguage,

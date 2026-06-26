@@ -45,7 +45,20 @@ export function WorkflowProgress({
             ? 'current'
             : 'pending',
     },
-    { label: 'Export', description: 'Generate workflow', state: workflow ? 'done' : preview ? 'current' : 'pending' },
+    {
+      label: 'Export',
+      description: 'Generate workflow',
+      // 'loading' while /api/workflow is in flight so the badge spins.
+      // 'current' before the workflow call starts (we have a preview
+      // but no workflow yet). 'done' once the workflow lands.
+      state: workflow
+        ? 'done'
+        : status === 'generating'
+          ? 'loading'
+          : preview
+            ? 'current'
+            : 'pending',
+    },
   ]
 
   const currentIndex = steps.findIndex((step) => step.state === 'current' || step.state === 'loading')

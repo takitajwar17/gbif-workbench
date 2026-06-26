@@ -165,6 +165,7 @@ function App() {
               triage={state.triage}
               preview={state.preview}
               workflow={state.workflow}
+              workflowError={state.workflowError}
               query={state.query}
               activeWorkflowGroup={state.activeWorkflowGroup}
               setActiveWorkflowGroup={state.setActiveWorkflowGroup}

@@ -64,6 +64,47 @@ function detectPromptInjection(question) {
 export const validateParseIntentBody = validateRequestBody
 export const validateStudyPlanBody = validateRequestBody
 
+// Validates the inbound /api/workflow payload. The client must send
+// back exactly the shapes /api/study-plan produced: a fully-populated
+// intent, taxon, query, and preview. We do a structural check (not a
+// deep equality check) so a slightly stale client doesn't get rejected
+// for harmless field reorderings.
+//
+// triage is optional but recommended: when present, the LLM can echo
+// its qualitative judgments (support headline, risks, recommended
+// filters) into the markdown/html report instead of inventing its own.
+//
+// Exported so unit tests in `server/lib/__tests__/workflowValidation.test.js`
+// can exercise the boundary without booting a Vercel handler.
+export function validateWorkflowBody(body) {
+  if (!body || typeof body !== 'object') {
+    return { ok: false, error: 'Request body must be a JSON object.' }
+  }
+  const { intent, taxon, query, preview, triage } = body
+  if (!intent || typeof intent !== 'object') {
+    return { ok: false, error: 'Missing `intent` in request body.' }
+  }
+  if (!taxon || typeof taxon !== 'object') {
+    return { ok: false, error: 'Missing `taxon` in request body.' }
+  }
+  if (!query || typeof query !== 'object') {
+    return { ok: false, error: 'Missing `query` in request body.' }
+  }
+  if (!preview || typeof preview !== 'object') {
+    return { ok: false, error: 'Missing `preview` in request body.' }
+  }
+  return {
+    ok: true,
+    value: {
+      intent,
+      taxon,
+      query,
+      preview,
+      triage: triage && typeof triage === 'object' ? triage : null,
+    },
+  }
+}
+
 export function seedIntentFromOverrides(overrides) {
   // Build a minimal intent shape that resolveTaxon() can consume before the
   // LLM returns. Only taxon-related overrides matter here; everything else is

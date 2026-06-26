@@ -2,7 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "outputDirectory": "dist",
   "functions": {
-    "api/study-plan.js": { "maxDuration": 60 }
+    "api/study-plan.js": { "maxDuration": 60 },
+    "api/workflow.js": { "maxDuration": 60 }
   },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }

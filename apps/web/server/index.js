@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import healthHandler from '../api/health.js'
 import parseIntentHandler from '../api/parse-intent.js'
 import studyPlanHandler from '../api/study-plan.js'
+import workflowHandler from '../api/workflow.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -19,6 +20,7 @@ app.use(express.json({ limit: '2mb' }))
 app.get('/api/health', healthHandler)
 app.post('/api/parse-intent', parseIntentHandler)
 app.post('/api/study-plan', studyPlanHandler)
+app.post('/api/workflow', workflowHandler)
 
 const distPath = path.resolve(__dirname, '../dist')
 app.use(express.static(distPath))

@@ -1,6 +1,14 @@
-// Long-form system instructions for the two OpenAI structured-output calls.
-// Kept separate from `openai.js` so the orchestration file stays focused on
-// HTTP flow and the prompts are easy to diff/edit without touching the rest.
+// Long-form system instructions for the three OpenAI structured-output
+// calls (intent interpretation, triage, and workflow). Kept separate
+// from `openai.js` so the orchestration file stays focused on HTTP
+// flow and the prompts are easy to diff/edit without touching the rest.
+//
+// The assessment used to be one big prompt that asked for triage AND
+// workflow in a single structured output. That call ran 15-30s on the
+// cold path, which pushed Vercel Hobby's 60s ceiling when paired with
+// the upstream intent + taxon + GBIF preview round-trips. Splitting
+// the call gives each step its own budget and lets the user see the
+// triage card immediately while the workflow streams in behind it.
 
 export const intentInstructions = `
 You turn a biodiversity research question into a precise GBIF study scope.
@@ -25,7 +33,10 @@ Off-topic guard:
 - Never refuse to answer a legitimate biodiversity question. If you are unsure whether a question is in scope, lean toward interpreting it.
 `
 
-export const assessmentInstructions = `
+// Triage prompt: produces the qualitative "What GBIF Workbench found"
+// card. Compact, fast. Readiness integers are computed deterministically
+// in JS from the GBIF preview; the LLM is told to emit 0 for them.
+export const triageInstructions = `
 You are GBIF Workbench, a cautious biodiversity-data research planning assistant.
 
 Return only JSON that matches the schema. Ground every record-count, country, dataset, and temporal-coverage statement in the provided GBIF preview. Do not invent data.
@@ -41,6 +52,21 @@ Scientific stance:
 Readiness scoring:
 - The numeric readiness scores (spatial / temporal / taxonomic / dataType) are computed deterministically by the Workbench from the GBIF preview, NOT by you. Set each score to 0 in your JSON output — they will be replaced before the user sees the result. Do not attempt to invent a numeric score.
 
+Risks, filters, and next steps:
+- List at least 3 risks ordered by level (BLOCKING / HIGH first), each tied to evidence from the preview.
+- recommendedFilters should suggest concrete GBIF predicates (basisOfRecord, hasCoordinate, hasGeospatialIssue, year ranges, country lists, issue exclusions) that would tighten the data.
+- unsupportedClaims should be plain-language statements of what GBIF occurrence data alone cannot answer.
+- nextSteps should be a short ordered list of concrete next moves the researcher can take (e.g. "filter to HUMAN_OBSERVATION and re-preview", "add an explicit year window").
+`
+
+// Workflow prompt: produces the long-form reproducible code, methods
+// text, and reports. This is the heaviest output (8 fields, often
+// several thousand tokens), so it lives in its own endpoint.
+export const workflowInstructions = `
+You are GBIF Workbench, generating a reproducible export package for a biodiversity study.
+
+Return only JSON that matches the schema. Use the provided gbifQuery URLs and downloadPredicate directly — do not invent other queries.
+
 Workflow requirements:
 - Use the provided gbifQuery URLs and downloadPredicate in generated R and Python code.
 - Mention that the export package includes a predicate download request JSON with placeholder GBIF account notification details.
@@ -53,3 +79,8 @@ Workflow requirements:
 - markdownReport must include these sections: Title, User research question, Interpreted study scope, Taxon resolution, Region resolution, Data needed for intended claim, GBIF data availability preview, Data-type triage, Bias and limitation assessment, Supported and unsupported claims, Recommended filters, Recommended workflow, Generated code links, Citation instructions, Limitations and assumptions, What to do next.
 - Do not include fake sample records or demo results.
 `
+
+// Backwards-compatible combined prompt. Kept as a thin union of the two
+// new prompts so any code that still references assessmentInstructions
+// continues to compile. Production code no longer calls this.
+export const assessmentInstructions = `${triageInstructions}\n\n${workflowInstructions}`
