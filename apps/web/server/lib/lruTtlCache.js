@@ -41,6 +41,9 @@ export function createLruTtlCache({ ttlMs, maxEntries }) {
       store.set(key, { fetchedAt: Date.now(), value })
       evictIfNeeded()
     },
+    clear() {
+      store.clear()
+    },
     get size() {
       return store.size
     },

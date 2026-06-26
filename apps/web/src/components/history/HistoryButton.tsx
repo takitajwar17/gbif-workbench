@@ -241,7 +241,7 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
                   <div className="rounded-lg border p-4">
                     <h3 className="text-sm font-medium">No saved analyses yet</h3>
                     <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                      Run an analysis while signed in. Completed workflow exports are saved automatically.
+                      Run an analysis while signed in. Verdicts are saved automatically, then updated when workflow exports finish.
                     </p>
                   </div>
                 )}

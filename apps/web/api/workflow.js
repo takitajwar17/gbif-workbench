@@ -4,6 +4,7 @@ import {
   historyDatabaseError,
   isHistoryDatabaseConfigured,
   saveHistoryEntry,
+  updateHistoryEntry,
 } from '../server/historyStore.js'
 import { shouldUseDeterministicFallback } from '../server/lib/fallbackPolicy.js'
 import { createFallbackWorkflow } from '../server/lib/fallbackWorkflow.js'
@@ -36,7 +37,7 @@ export default async function handler(req, res) {
     res.status(400).json({ error: validation.error })
     return
   }
-  const { intent, taxon, query, preview, triage, models } = validation.value
+  const { intent, taxon, query, preview, triage, models, historyId } = validation.value
 
   const payload = {
     intent,
@@ -85,6 +86,7 @@ export default async function handler(req, res) {
       console.warn(`[workflow] ${message}`)
       const fallback = await buildDeterministicResponse({
         userId: user.userId,
+        historyId,
         payload,
         intent,
         taxon,
@@ -100,6 +102,7 @@ export default async function handler(req, res) {
 
     const history = await saveWorkflowHistory({
       userId: user.userId,
+      historyId,
       snapshot: {
         question: intent.question,
         preferredLanguage: intent.preferredLanguage,
@@ -133,6 +136,7 @@ export default async function handler(req, res) {
     console.warn(`[workflow] AI workflow unavailable; using deterministic fallback: ${message}`)
     const fallback = await buildDeterministicResponse({
       userId: user.userId,
+      historyId,
       payload,
       intent,
       taxon,
@@ -152,7 +156,7 @@ export default async function handler(req, res) {
 // In both cases we ship the deterministic workflow, mark the model as
 // the fallback tag, and persist history so the user still sees their
 // previous attempt in the history panel.
-async function buildDeterministicResponse({ userId, payload, intent, taxon, query, preview, triage, models, message }) {
+async function buildDeterministicResponse({ userId, historyId, payload, intent, taxon, query, preview, triage, models, message }) {
   const responseModels = { ...models, workflow: 'deterministic-workflow-fallback' }
   const workflow = finalizeWorkflow(createFallbackWorkflow({
     intent,
@@ -167,6 +171,7 @@ async function buildDeterministicResponse({ userId, payload, intent, taxon, quer
   })
   const history = await saveWorkflowHistory({
     userId,
+    historyId,
     snapshot: {
       question: intent.question,
       preferredLanguage: intent.preferredLanguage,
@@ -186,13 +191,19 @@ async function buildDeterministicResponse({ userId, payload, intent, taxon, quer
   }
 }
 
-async function saveWorkflowHistory({ userId, snapshot }) {
+async function saveWorkflowHistory({ userId, historyId, snapshot }) {
   if (!isHistoryDatabaseConfigured()) {
     return { saved: false, reason: historyDatabaseError().message }
   }
 
   try {
-    const item = await saveHistoryEntry({ userId, snapshot })
+    const item = historyId
+      ? await updateHistoryEntry({ userId, id: historyId, snapshot })
+      : await saveHistoryEntry({ userId, snapshot })
+    if (!item && historyId) {
+      const inserted = await saveHistoryEntry({ userId, snapshot })
+      return { saved: true, item: inserted }
+    }
     return { saved: true, item }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'History save failed.'

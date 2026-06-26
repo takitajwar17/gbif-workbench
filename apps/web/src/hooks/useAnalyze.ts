@@ -21,6 +21,8 @@ import type {
 
 const STALE_WORKFLOW_MESSAGE =
   'Scope changed after this run. Re-run the analysis to regenerate exports for the edited scope.'
+const MISSING_WORKFLOW_HISTORY_MESSAGE =
+  'This saved analysis includes the verdict but not workflow exports. Re-run the analysis to generate exports.'
 
 // Single source of truth for the workspace's `useState` graph + the imperative
 // actions that mutate it. The orchestrator (App.tsx) only renders JSX and
@@ -177,6 +179,7 @@ export function useAnalyze() {
         preview: result.preview,
         triage: result.triage,
         models: result.models,
+        historyId: result.history?.item?.id,
         runId,
       })
     } catch (caught) {
@@ -197,6 +200,7 @@ export function useAnalyze() {
     preview,
     triage,
     models,
+    historyId,
     runId,
   }: {
     intent: StudyIntent
@@ -205,13 +209,14 @@ export function useAnalyze() {
     preview: DataPreview
     triage: TriageResult
     models?: AnalysisModels
+    historyId?: string
     runId: number
   }) {
     const controller = new AbortController()
     workflowAbortRef.current = controller
     try {
       const result = await requestStudyWorkflow(
-        { intent, taxon, query, preview, triage, models },
+        { intent, taxon, query, preview, triage, models, historyId },
         auth.getAuthToken,
         controller.signal,
       )
@@ -441,8 +446,8 @@ export function useAnalyze() {
     setQuery(snapshot.query)
     setPreview(snapshot.preview)
     setTriage(snapshot.triage)
-    setWorkflow(snapshot.workflow)
-    setWorkflowError('')
+    setWorkflow(snapshot.workflow || null)
+    setWorkflowError(snapshot.workflow ? '' : MISSING_WORKFLOW_HISTORY_MESSAGE)
     setError('')
     setStatus('ready')
     lastSubmittedRef.current = restoredQuestion

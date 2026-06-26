@@ -11,6 +11,8 @@ const GBIF_API = 'https://api.gbif.org/v1'
 const CACHE_TTL_MS = 1000 * 60 * 30
 const CACHE_MAX_ENTRIES = Number(process.env.GBIF_CACHE_MAX_ENTRIES || 500)
 const GBIF_TIMEOUT_MS = Number(process.env.GBIF_TIMEOUT_MS || 90000)
+const GBIF_MAX_ATTEMPTS = Math.max(1, Number(process.env.GBIF_MAX_ATTEMPTS || 3))
+const GBIF_RETRY_BACKOFF_MS = Math.max(0, Number(process.env.GBIF_RETRY_BACKOFF_MS || 750))
 
 // Shared LRU+TTL cache for every GBIF HTTP call (taxon match, occurrence
 // search, sampling-event dataset search, dataset hydration, taxa hydration).
@@ -18,6 +20,10 @@ const cache = createLruTtlCache({
   ttlMs: CACHE_TTL_MS,
   maxEntries: CACHE_MAX_ENTRIES,
 })
+
+export function __resetGbifCacheForTests() {
+  cache.clear()
+}
 
 export async function resolveTaxon(intent) {
   const sourceName = String(intent.taxonQuery || intent.taxonText || '').trim()
@@ -332,23 +338,88 @@ async function fetchJson(input) {
   const cached = cache.get(url)
   if (cached !== undefined) return cached
 
+  let lastError = null
+  for (let attempt = 1; attempt <= GBIF_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(url)
+      if (!response.ok) {
+        const error = new Error(`GBIF request failed: ${response.status} ${response.statusText}`)
+        error.status = response.status
+        error.retryAfterMs = retryAfterMs(response.headers.get('retry-after'))
+        throw error
+      }
+      const value = await response.json()
+      cache.set(url, value)
+      return value
+    } catch (error) {
+      lastError = normalizeGbifFetchError(error, url)
+      if (!shouldRetryGbif(lastError, attempt)) break
+      const delayMs = lastError.retryAfterMs ?? retryDelayMs(attempt)
+      console.warn(`[gbif] attempt ${attempt}/${GBIF_MAX_ATTEMPTS} failed; retrying in ${delayMs}ms: ${lastError.message}`)
+      await sleep(delayMs)
+    }
+  }
+
+  throw withAttemptContext(lastError, url)
+}
+
+async function fetchWithTimeout(url) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), GBIF_TIMEOUT_MS)
   try {
-    const response = await fetch(url, { signal: controller.signal })
-    if (!response.ok) throw new Error(`GBIF request failed: ${response.status} ${response.statusText}`)
-    const value = await response.json()
-    cache.set(url, value)
-    return value
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`GBIF request timed out after ${GBIF_TIMEOUT_MS / 1000}s: ${url}`)
-    }
-    const message = error instanceof Error ? error.message : 'unknown fetch error'
-    throw new Error(`GBIF request failed before response: ${url}: ${message}`)
+    return await fetch(url, { signal: controller.signal })
   } finally {
     clearTimeout(timer)
   }
+}
+
+function normalizeGbifFetchError(error, url) {
+  if (error instanceof Error && error.name === 'AbortError') {
+    const timeout = new Error(`GBIF request timed out after ${GBIF_TIMEOUT_MS / 1000}s: ${url}`)
+    timeout.retryable = true
+    return timeout
+  }
+
+  if (error instanceof Error && typeof error.status === 'number') {
+    error.retryable = isRetryableGbifStatus(error.status)
+    return error
+  }
+
+  const message = error instanceof Error ? error.message : 'unknown fetch error'
+  const wrapped = new Error(`GBIF request failed before response: ${url}: ${message}`)
+  wrapped.retryable = true
+  return wrapped
+}
+
+function shouldRetryGbif(error, attempt) {
+  return Boolean(error?.retryable && attempt < GBIF_MAX_ATTEMPTS)
+}
+
+function isRetryableGbifStatus(status) {
+  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500
+}
+
+function retryDelayMs(attempt) {
+  return GBIF_RETRY_BACKOFF_MS * Math.pow(2, Math.max(0, attempt - 1))
+}
+
+function retryAfterMs(value) {
+  if (!value) return null
+  const seconds = Number(value)
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, 30_000)
+  const timestamp = Date.parse(value)
+  if (!Number.isNaN(timestamp)) return Math.min(Math.max(0, timestamp - Date.now()), 30_000)
+  return null
+}
+
+function withAttemptContext(error, url) {
+  if (!error) return new Error(`GBIF request failed after ${GBIF_MAX_ATTEMPTS} attempts: ${url}`)
+  if (GBIF_MAX_ATTEMPTS <= 1 || !error.retryable) return error
+  return new Error(`${error.message} after ${GBIF_MAX_ATTEMPTS} attempts.`)
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function normalizeRank(value) {

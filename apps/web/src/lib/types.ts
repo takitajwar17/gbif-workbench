@@ -186,7 +186,7 @@ export interface HistorySnapshot {
   query: GbifQuery
   preview: DataPreview
   triage: TriageResult | null
-  workflow: WorkflowPackage
+  workflow: WorkflowPackage | null
   models?: AnalysisModels
   savedAt?: string
 }

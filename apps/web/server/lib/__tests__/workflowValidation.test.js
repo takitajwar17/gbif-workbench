@@ -90,6 +90,13 @@ describe('validateWorkflowBody — happy path', () => {
     })
   })
 
+  it('preserves a history id for workflow history updates', () => {
+    const result = validateWorkflowBody(makePayload({ historyId: ' history-123 ' }))
+
+    expect(result.ok).toBe(true)
+    expect(result.value.historyId).toBe('history-123')
+  })
+
   it('normalizes a missing triage to null', () => {
     const payload = makePayload()
     delete payload.triage

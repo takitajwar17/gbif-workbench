@@ -17,6 +17,11 @@ interface StudyPlanResponse {
   preview: DataPreview
   triage: TriageResult
   models?: AnalysisModels
+  history?: {
+    saved: boolean
+    reason?: string
+    item?: HistoryListItem
+  }
 }
 
 interface WorkflowResponse {
@@ -41,6 +46,7 @@ export interface WorkflowRequest {
   preview: DataPreview
   triage: TriageResult | null
   models?: AnalysisModels
+  historyId?: string
 }
 
 interface IntentResponse {

@@ -21,6 +21,7 @@ describe('createHistoryPayload', () => {
     const payload = createHistoryPayload(createSnapshot())
 
     expect(payload.version).toBe(1)
+    expect(payload.status).toBe('workflow_ready')
     expect(payload.question).toBe('Can GBIF support a tiger distribution map in Bangladesh?')
     expect(payload.intent.taxonText).toBe('Panthera tigris')
     expect(payload.taxon.canonicalName).toBe('Panthera tigris')
@@ -28,6 +29,14 @@ describe('createHistoryPayload', () => {
     expect(payload.preview.counts.total).toBe(120)
     expect(payload.triage?.support.headline).toBe('Usable with caveats')
     expect(payload.workflow.rCode).toContain('rgbif')
+  })
+
+  it('stores preview-ready snapshots before workflow exports exist', () => {
+    const payload = createHistoryPayload({ ...createSnapshot(), workflow: null })
+
+    expect(payload.status).toBe('preview_ready')
+    expect(payload.workflow).toBeNull()
+    expect(payload.triage?.support.headline).toBe('Usable with caveats')
   })
 
   it('rejects incomplete snapshots', () => {

@@ -105,8 +105,13 @@ export function validateWorkflowBody(body) {
       preview,
       triage: triage && typeof triage === 'object' ? triage : null,
       models: normalizeModels(body.models),
+      historyId: normalizeHistoryId(body.historyId),
     },
   }
+}
+
+function normalizeHistoryId(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 
 function normalizeModels(models) {

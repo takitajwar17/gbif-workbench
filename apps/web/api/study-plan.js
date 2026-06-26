@@ -1,6 +1,11 @@
 import { assessTriage, interpretStudyIntent } from '../server/openai.js'
 import { requireUser } from '../server/auth.js'
 import {
+  historyDatabaseError,
+  isHistoryDatabaseConfigured,
+  saveHistoryEntry,
+} from '../server/historyStore.js'
+import {
   buildGbifQuery,
   normalizeIntent,
   previewGbifData,
@@ -79,6 +84,24 @@ export default async function handler(req, res) {
       )
       triageModel = 'deterministic-preview-fallback'
     }
+    const models = {
+      intent: interpreted.model,
+      triage: triageModel,
+    }
+    const history = await savePreviewHistory({
+      userId: user.userId,
+      snapshot: {
+        question: intent.question,
+        preferredLanguage: intent.preferredLanguage,
+        intent,
+        taxon,
+        query,
+        preview,
+        triage,
+        workflow: null,
+        models,
+      },
+    })
 
     res.status(200).json({
       intent,
@@ -86,10 +109,8 @@ export default async function handler(req, res) {
       query,
       preview,
       triage,
-      models: {
-        intent: interpreted.model,
-        triage: triageModel,
-      },
+      models,
+      history,
     })
   } catch (error) {
     const message =
@@ -98,5 +119,20 @@ export default async function handler(req, res) {
         : 'GBIF Workbench analysis failed.'
     console.error('[study-plan]', message)
     res.status(500).json({ error: message })
+  }
+}
+
+async function savePreviewHistory({ userId, snapshot }) {
+  if (!isHistoryDatabaseConfigured()) {
+    return { saved: false, reason: historyDatabaseError().message }
+  }
+
+  try {
+    const item = await saveHistoryEntry({ userId, snapshot })
+    return { saved: true, item }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'History save failed.'
+    console.warn(`[study-plan] History save unavailable: ${message}`)
+    return { saved: false, reason: message }
   }
 }
