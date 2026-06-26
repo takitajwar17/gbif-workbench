@@ -1,4 +1,5 @@
 import { assessTriage, interpretStudyIntent } from '../server/openai.js'
+import { requireUser } from '../server/auth.js'
 import {
   buildGbifQuery,
   normalizeIntent,
@@ -28,6 +29,9 @@ import {
 // response. Splitting lets the user see the result card immediately
 // while /api/workflow streams the code/report in behind it.
 export default async function handler(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+
   const validation = validateStudyPlanBody(req.body)
   if (!validation.ok) {
     res.status(400).json({ error: validation.error })

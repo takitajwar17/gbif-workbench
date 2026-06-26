@@ -4,6 +4,7 @@
 // so it is safe to load in any Node.js runtime (Vercel serverless, local
 // dev, tests).
 
+import './env.js'
 import { computeReadiness, weightedAverageReadiness } from './lib/readinessFormula.js'
 
 export function createHealthResponse() {

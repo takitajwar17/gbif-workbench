@@ -94,6 +94,9 @@ export function friendlyError(message: string, fallback: string): string {
   if (/OpenAI returned (invalid JSON|no structured output)/i.test(message)) {
     return 'The AI service returned an incomplete response after retrying. Please run the analysis again.'
   }
+  if (/status 401|sign in|session could not be verified|unauthorized/i.test(message)) {
+    return 'Sign in with Google to run GBIF Workbench analysis. If you already signed in, sign out and sign in again.'
+  }
   if (/status 5\d\d/i.test(message)) {
     return 'The GBIF Workbench backend hit a temporary error. Please retry in a moment.'
   }

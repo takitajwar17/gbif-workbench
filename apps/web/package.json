@@ -16,6 +16,8 @@
     "deploy": "vercel --prod"
   },
   "dependencies": {
+    "@clerk/backend": "^3.8.4",
+    "@clerk/react": "^6.11.1",
     "@radix-ui/react-label": "^2.1.10",
     "@radix-ui/react-progress": "^1.1.10",
     "@radix-ui/react-scroll-area": "^1.2.12",

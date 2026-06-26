@@ -1,7 +1,7 @@
 // Local dev only: a thin Express shell that mounts the same handlers
 // Vercel serves from `apps/web/api/*.js`. In production the same files
 // are deployed as Vercel serverless functions and this file is not used.
-import 'dotenv/config'
+import './env.js'
 import express from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'

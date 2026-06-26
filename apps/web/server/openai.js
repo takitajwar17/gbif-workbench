@@ -1,3 +1,4 @@
+import './env.js'
 import crypto from 'node:crypto'
 import { createLruTtlCache } from './lib/lruTtlCache.js'
 import { shouldRetry, retryDelayMs, escalationBudget } from './lib/retryPolicy.js'

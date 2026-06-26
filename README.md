@@ -24,7 +24,14 @@ npm install
 npm run dev
 ```
 
-Create `apps/web/.env` with `OPENAI_API_KEY`, then open the local URL printed by Vite. The dev script starts both the API server and Vite.
+Create `apps/web/.env` from `apps/web/.env.example`, add `OPENAI_API_KEY`, then run the Clerk CLI setup in `apps/web` to pull the Clerk keys:
+
+```bash
+clerk auth login
+clerk init --app app_3Fep5CGqjTNdmkeXjb6ETymJZFv
+```
+
+Then open the local URL printed by Vite. The dev script starts both the API server and Vite.
 
 ## Verify
 

@@ -25,4 +25,6 @@ npm run build
 
 ## Credentials
 
-OpenAI credentials live in `apps/web/.env` and are used only by the local API server. Generated workflows tell users how to run DOI-backed GBIF downloads locally with their own GBIF.org credentials.
+OpenAI and Clerk server credentials live in `apps/web/.env` and are used only by the local API server. The browser uses `VITE_CLERK_PUBLISHABLE_KEY` for Clerk's public client SDK. Generated workflows tell users how to run DOI-backed GBIF downloads locally with their own GBIF.org credentials.
+
+Copy `.env.example` to `.env`, add `OPENAI_API_KEY`, then run `clerk auth login` and `clerk init --app app_3Fep5CGqjTNdmkeXjb6ETymJZFv` from this directory. The Clerk CLI writes `VITE_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` into `.env`.

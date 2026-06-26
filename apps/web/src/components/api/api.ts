@@ -40,8 +40,10 @@ interface IntentResponse {
   intent: StudyIntent
 }
 
-export async function requestStudyPlan(payload: StudyPlanRequest): Promise<StudyPlanResponse> {
-  const response = await fetch('/api/study-plan', {
+export type AuthTokenGetter = () => Promise<string | null>
+
+export async function requestStudyPlan(payload: StudyPlanRequest, getAuthToken: AuthTokenGetter): Promise<StudyPlanResponse> {
+  const response = await authenticatedFetch('/api/study-plan', getAuthToken, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -62,9 +64,10 @@ export async function requestStudyPlan(payload: StudyPlanRequest): Promise<Study
 // user re-runs the analysis with a different scope.
 export async function requestStudyWorkflow(
   payload: WorkflowRequest,
+  getAuthToken: AuthTokenGetter,
   signal?: AbortSignal,
 ): Promise<WorkflowResponse> {
-  const response = await fetch('/api/workflow', {
+  const response = await authenticatedFetch('/api/workflow', getAuthToken, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -79,8 +82,8 @@ export async function requestStudyWorkflow(
   return (await response.json()) as WorkflowResponse
 }
 
-export async function requestStudyIntent(payload: StudyPlanRequest): Promise<IntentResponse> {
-  const response = await fetch('/api/parse-intent', {
+export async function requestStudyIntent(payload: StudyPlanRequest, getAuthToken: AuthTokenGetter): Promise<IntentResponse> {
+  const response = await authenticatedFetch('/api/parse-intent', getAuthToken, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -92,4 +95,15 @@ export async function requestStudyIntent(payload: StudyPlanRequest): Promise<Int
   }
 
   return (await response.json()) as IntentResponse
+}
+
+async function authenticatedFetch(input: string, getAuthToken: AuthTokenGetter, init: RequestInit) {
+  const token = await getAuthToken()
+  if (!token) {
+    throw new Error('Sign in with Google to run GBIF Workbench analysis.')
+  }
+
+  const headers = new Headers(init.headers)
+  headers.set('Authorization', `Bearer ${token}`)
+  return fetch(input, { ...init, headers })
 }

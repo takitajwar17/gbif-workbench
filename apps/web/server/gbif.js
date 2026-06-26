@@ -1,3 +1,4 @@
+import './env.js'
 import { createLruTtlCache } from './lib/lruTtlCache.js'
 import {
   createDownloadPredicate,

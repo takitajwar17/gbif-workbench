@@ -89,7 +89,13 @@ describe('friendlyError — HTTP status codes', () => {
 
   it('maps 4xx to a "rejected" message', () => {
     expect(friendlyError('status 400', 'fallback')).toMatch(/rejected/i)
-    expect(friendlyError('status 401', 'fallback')).toMatch(/rejected/i)
+  })
+
+  it('maps auth failures to a sign-in message', () => {
+    expect(friendlyError('status 401', 'fallback')).toMatch(/Sign in with Google/i)
+    expect(friendlyError('Your sign-in session could not be verified.', 'fallback')).toMatch(
+      /sign in again/i,
+    )
   })
 })
 

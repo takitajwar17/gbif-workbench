@@ -3,6 +3,7 @@ import { friendlyError } from '@/lib/format'
 import { detectOffTopicSentinel, validateResearchQuestion } from '@/lib/queryGuard'
 import type { Status } from '@/lib/status'
 import type { WorkflowGroup } from '@/constants/options'
+import { useAppAuth } from '@/auth/auth-context'
 import { requestStudyIntent, requestStudyPlan, requestStudyWorkflow } from '@/components/api/api'
 import type { StudyPlanRequest } from '@/components/api/api'
 import type {
@@ -56,6 +57,7 @@ const STALE_WORKFLOW_MESSAGE =
 // previous in-flight workflow fetch.
 
 export function useAnalyze() {
+  const auth = useAppAuth()
   const [question, setQuestion] = useState('')
   const [preferredLanguage, setPreferredLanguage] = useState<PreferredLanguage>('Both')
   const [intent, setIntent] = useState<StudyIntent | null>(null)
@@ -90,6 +92,8 @@ export function useAnalyze() {
   // the previous one so the user never sees a workflow that belongs to the
   // previous scope land on the current scope.
   const workflowAbortRef = useRef<AbortController | null>(null)
+  const pendingAnalyzeAfterSignInRef = useRef(false)
+  const analyzeNowRef = useRef<() => Promise<void> | void>(() => undefined)
   // Cancel any in-flight /api/workflow call. Called from runStudy before
   // it starts and from every result-clearing action so a stale workflow
   // never lands after the user has wiped the state.
@@ -103,6 +107,23 @@ export function useAnalyze() {
   function invalidateCurrentRun() {
     cancelWorkflow()
     runIdRef.current += 1
+  }
+
+  function requireSignedInForAnalysis() {
+    if (auth.isSignedIn) return true
+    if (!auth.isConfigured) {
+      pendingAnalyzeAfterSignInRef.current = false
+      setError('Authentication is not configured. Add Clerk keys to run live GBIF Workbench analysis.')
+      setStatus('error')
+      return false
+    }
+    if (!auth.isLoaded) {
+      pendingAnalyzeAfterSignInRef.current = true
+      return false
+    }
+    pendingAnalyzeAfterSignInRef.current = true
+    auth.requestSignIn()
+    return false
   }
 
   function markScopeEdited() {
@@ -128,7 +149,7 @@ export function useAnalyze() {
     setWorkflow(null)
 
     try {
-      const result = await requestStudyPlan({ ...payload, question: trimmedQuestion })
+      const result = await requestStudyPlan({ ...payload, question: trimmedQuestion }, auth.getAuthToken)
       if (runId !== runIdRef.current) return // stale response, ignore
       // Render the result card immediately. The /api/workflow call runs
       // in the background — the user does not have to wait for the long
@@ -189,6 +210,7 @@ export function useAnalyze() {
     try {
       const result = await requestStudyWorkflow(
         { intent, taxon, query, preview, triage, models },
+        auth.getAuthToken,
         controller.signal,
       )
       if (runId !== runIdRef.current) return // stale response, ignore
@@ -250,7 +272,7 @@ export function useAnalyze() {
     setWorkflow(null)
 
     try {
-      const result = await requestStudyIntent({ question: trimmed, overrides: { preferredLanguage } })
+      const result = await requestStudyIntent({ question: trimmed, overrides: { preferredLanguage } }, auth.getAuthToken)
       if (runId !== runIdRef.current) return
       // LLM-side off-topic check: if the model couldn't make sense of the
       // question as a biodiversity / GBIF data request, it sets a sentinel
@@ -299,6 +321,7 @@ export function useAnalyze() {
       lastSubmittedRef.current = ''
       return
     }
+    if (!requireSignedInForAnalysis()) return
     if (intent) {
       invalidateCurrentRun()
       await runStudy({ question: trimmed, overrides: { ...intent, preferredLanguage } }, runIdRef.current)
@@ -373,6 +396,7 @@ export function useAnalyze() {
   }
 
   function selectDemoPrompt(prompt: string) {
+    pendingAnalyzeAfterSignInRef.current = false
     invalidateCurrentRun()
     setQuestion(prompt)
     setIntent(null)
@@ -393,6 +417,7 @@ export function useAnalyze() {
   }
 
   function clearResults() {
+    pendingAnalyzeAfterSignInRef.current = false
     invalidateCurrentRun()
     setIntent(null)
     setTaxon(null)
@@ -413,6 +438,27 @@ export function useAnalyze() {
       cancelWorkflow()
     }
   }, [cancelWorkflow])
+
+  useEffect(() => {
+    analyzeNowRef.current = analyzeNow
+  })
+
+  const authIsConfigured = auth.isConfigured
+  const authIsLoaded = auth.isLoaded
+  const authIsSignedIn = auth.isSignedIn
+  const requestSignIn = auth.requestSignIn
+
+  useEffect(() => {
+    if (!pendingAnalyzeAfterSignInRef.current) return
+    if (authIsSignedIn) {
+      pendingAnalyzeAfterSignInRef.current = false
+      void analyzeNowRef.current()
+      return
+    }
+    if (authIsConfigured && authIsLoaded) {
+      requestSignIn()
+    }
+  }, [authIsConfigured, authIsLoaded, authIsSignedIn, requestSignIn])
 
   return {
     question,

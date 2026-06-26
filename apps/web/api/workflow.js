@@ -1,4 +1,5 @@
 import { assessWorkflow } from '../server/openai.js'
+import { requireUser } from '../server/auth.js'
 import { shouldUseDeterministicFallback } from '../server/lib/fallbackPolicy.js'
 import { createFallbackWorkflow } from '../server/lib/fallbackWorkflow.js'
 import { finalizeWorkflow, validateWorkflowBody } from '../server/workflow.js'
@@ -21,6 +22,9 @@ import { finalizeWorkflow, validateWorkflowBody } from '../server/workflow.js'
 // echo its qualitative judgments (support headline, risks, recommended
 // filters) into the markdown/html report instead of inventing its own.
 export default async function handler(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+
   const validation = validateWorkflowBody(req.body)
   if (!validation.ok) {
     res.status(400).json({ error: validation.error })
