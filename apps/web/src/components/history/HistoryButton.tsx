@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react'
-import { Clock3, Database, RefreshCw, RotateCcw, Trash2, X } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Clock3, Database, Loader2, RefreshCw, Trash2, X } from 'lucide-react'
 import { useAppAuth } from '@/auth/auth-context'
 import {
   deleteHistoryEntry,
@@ -9,16 +10,32 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/format'
-import type { HistoryEntry, HistoryListItem, HistorySnapshot } from '@/lib/types'
+import type { HistoryListItem, HistorySnapshot } from '@/lib/types'
 
+// Drawer width: generous enough to show a list with full question
+// text, but never wider than the viewport on phones.
+const DRAWER_WIDTH = 'min(420px, 100vw)'
+
+// HistoryButton renders a "History" button in the header that opens a
+// full-height right-side drawer. The drawer is rendered into
+// document.body via createPortal so its `position: fixed` children
+// are NOT contained by any ancestor's `backdrop-filter` /
+// `transform` / `filter` (the sticky header uses `backdrop-blur`,
+// which creates a new containing block and would otherwise clip the
+// drawer to the header's 64px height).
+//
+// Clicking a row fetches its full snapshot and hands it directly to
+// the workspace via onRestore (wired to useAnalyze.loadHistorySnapshot
+// in App.tsx) — no inline detail panel, no separate Restore button.
+// The drawer closes as soon as the restore completes.
 export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnapshot) => void }) {
   const auth = useAppAuth()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<HistoryListItem[]>([])
-  const [selected, setSelected] = useState<HistoryEntry | null>(null)
   const [loadingList, setLoadingList] = useState(false)
-  const [loadingEntryId, setLoadingEntryId] = useState('')
+  const [restoringId, setRestoringId] = useState('')
   const [deletingId, setDeletingId] = useState('')
   const [error, setError] = useState('')
 
@@ -29,9 +46,6 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
     try {
       const nextItems = await requestHistoryList(auth.getAuthToken)
       setItems(nextItems)
-      setSelected((current) =>
-        current && !nextItems.some((item) => item.id === current.id) ? null : current,
-      )
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not load account history.')
     } finally {
@@ -54,23 +68,30 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
     void loadList()
   }
 
-  const selectItem = async (item: HistoryListItem) => {
-    setLoadingEntryId(item.id)
+  const closeHistory = useCallback(() => {
+    setOpen(false)
+  }, [])
+
+  // Clicking a row fetches its full snapshot and hands it straight to
+  // the workspace. While the fetch is in flight the row shows a
+  // loading indicator and other rows are dimmed; the drawer closes
+  // as soon as the snapshot lands.
+  const restoreItem = async (item: HistoryListItem) => {
+    setRestoringId(item.id)
     setError('')
     try {
       const entry = await requestHistoryEntry(item.id, auth.getAuthToken)
-      setSelected(entry)
+      if (!entry?.snapshot) {
+        setError('Saved analysis is missing its snapshot. Re-run the analysis.')
+        return
+      }
+      onRestore(entry.snapshot)
+      setOpen(false)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not load this history entry.')
     } finally {
-      setLoadingEntryId('')
+      setRestoringId('')
     }
-  }
-
-  const restoreSelected = () => {
-    if (!selected?.snapshot) return
-    onRestore(selected.snapshot)
-    setOpen(false)
   }
 
   const removeItem = async (item: HistoryListItem) => {
@@ -79,7 +100,6 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
     try {
       await deleteHistoryEntry(item.id, auth.getAuthToken)
       setItems((current) => current.filter((entry) => entry.id !== item.id))
-      if (selected?.id === item.id) setSelected(null)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not delete this history entry.')
     } finally {
@@ -87,17 +107,35 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
     }
   }
 
-  const selectedSummary = useMemo(() => {
-    if (!selected) return null
-    return [
-      selected.taxonName,
-      selected.regionText,
-      selected.countries.length ? selected.countries.join(', ') : '',
-    ].filter(Boolean).join(' · ')
-  }, [selected])
+  // Escape closes the drawer. Bound only while open so we don't
+  // intercept keystrokes meant for the rest of the app.
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeHistory()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [open, closeHistory])
+
+  // Lock body scroll while the drawer is open so background scrolling
+  // doesn't fight with the drawer's own scroll container. Restore the
+  // previous overflow on cleanup so we don't strand the page in a
+  // no-scroll state if the component unmounts mid-open.
+  useEffect(() => {
+    if (!open) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open])
 
   return (
-    <div className="relative">
+    <>
       <Button
         type="button"
         variant="outline"
@@ -109,129 +147,174 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
         History
       </Button>
 
-      {open && (
-        <aside
+      {/* Drawer layer. Mounted into <body> via createPortal so the
+          fixed-positioned drawer escapes the header's backdrop-filter
+          containing block. Rendered conditionally so the slide-in
+          animation plays on every open. */}
+      {open && createPortal(
+        <div
+          className="fixed inset-0 z-[100]"
           role="dialog"
+          aria-modal="true"
           aria-label="Account history"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 flex max-h-[min(620px,calc(100vh-5rem))] w-[min(440px,calc(100vw-1rem))] flex-col overflow-hidden rounded-lg border bg-background shadow-xl"
         >
-          <div className="flex shrink-0 items-start justify-between gap-4 border-b p-4">
+          {/* Backdrop: dim the workspace underneath and intercept clicks
+              so tapping outside the drawer closes it. */}
+          <button
+            type="button"
+            aria-label="Close history"
+            onClick={closeHistory}
+            className="absolute inset-0 cursor-default bg-black/40 backdrop-blur-[2px] transition-opacity duration-200"
+          />
+
+          {/* The drawer itself. Full-height, right-anchored, slides in. */}
+          <div
+            className="absolute inset-y-0 right-0 flex max-w-full flex-col border-l bg-background shadow-2xl transition-transform duration-300 ease-out"
+            style={{ width: DRAWER_WIDTH }}
+          >
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b p-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <Database className="size-4 text-primary" />
                   <h2 className="text-base font-semibold">Account history</h2>
                 </div>
                 <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                  Saved analyses from your signed-in account.
+                  Click an analysis to load it into the workspace.
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <Button type="button" variant="ghost" size="icon" onClick={() => void loadList()} disabled={loadingList || !auth.isSignedIn} aria-label="Refresh history">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => void loadList()}
+                  disabled={loadingList || !auth.isSignedIn}
+                  aria-label="Refresh history"
+                >
                   <RefreshCw className={loadingList ? 'animate-spin' : undefined} />
                 </Button>
-                <Button type="button" variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label="Close history">
+                <Button type="button" variant="ghost" size="icon" onClick={closeHistory} aria-label="Close history">
                   <X />
                 </Button>
               </div>
             </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="grid gap-4 p-4">
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertTitle>History unavailable</AlertTitle>
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="grid gap-3">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertTitle>History unavailable</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
 
-                  {!auth.isSignedIn && !error && (
-                    <Alert>
-                      <AlertTitle>Sign in required</AlertTitle>
-                      <AlertDescription>
-                        Account history is saved per Clerk user. Sign in, then run an analysis to create your first entry.
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                {!auth.isSignedIn && !error && (
+                  <Alert>
+                    <AlertTitle>Sign in required</AlertTitle>
+                    <AlertDescription>
+                      Account history is saved per Clerk user. Sign in, then run an analysis to create your first entry.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-                  {auth.isSignedIn && loadingList && items.length === 0 && (
-                    <div className="rounded-lg border p-4 text-sm text-muted-foreground">Loading saved analyses…</div>
-                  )}
+                {auth.isSignedIn && loadingList && items.length === 0 && (
+                  <div className="flex items-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" /> Loading saved analyses…
+                  </div>
+                )}
 
-                  {auth.isSignedIn && !loadingList && items.length === 0 && !error && (
-                    <div className="rounded-lg border p-4">
-                      <h3 className="text-sm font-medium">No saved analyses yet</h3>
-                      <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                        Run an analysis while signed in. Completed workflow exports are saved automatically.
-                      </p>
-                    </div>
-                  )}
+                {auth.isSignedIn && !loadingList && items.length === 0 && !error && (
+                  <div className="rounded-lg border p-4">
+                    <h3 className="text-sm font-medium">No saved analyses yet</h3>
+                    <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                      Run an analysis while signed in. Completed workflow exports are saved automatically.
+                    </p>
+                  </div>
+                )}
 
-                  {items.length > 0 && (
-                    <div className="grid gap-2">
-                      {items.map((item) => (
+                {items.length > 0 && (
+                  <ul className="grid gap-2" role="listbox" aria-label="Saved analyses">
+                    {items.map((item) => (
+                      <li key={item.id}>
                         <article
-                          key={item.id}
-                          className="rounded-lg border bg-card p-3 text-card-foreground"
+                          className={cn(
+                            'group relative rounded-lg border bg-card p-3 text-card-foreground transition-colors hover:border-primary hover:bg-primary/5',
+                            restoringId === item.id && 'opacity-60',
+                          )}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <button
-                              type="button"
-                              className="min-w-0 flex-1 text-left"
-                              onClick={() => void selectItem(item)}
-                            >
+                          {/* Whole-card click target: an absolutely-
+                              positioned <button> covers the entire
+                              card. Pointer events on the inner content
+                              are disabled (`pointer-events-none`) so
+                              clicks pass through to this overlay.
+                              The delete button re-enables pointer
+                              events and sits above the overlay in the
+                              stacking order so it remains interactive
+                              independently. */}
+                          <button
+                            type="button"
+                            className="absolute inset-0 z-0 cursor-pointer rounded-lg text-left"
+                            onClick={() => void restoreItem(item)}
+                            disabled={restoringId !== '' || deletingId === item.id}
+                            aria-label={`Load saved analysis: ${item.question}`}
+                          />
+                          <div className="pointer-events-none relative flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
                               <h3 className="line-clamp-2 text-sm font-medium leading-5">{item.question}</h3>
                               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                                 {formatHistoryDate(item.createdAt)}
                                 {item.taxonName ? ` · ${item.taxonName}` : ''}
                                 {item.regionText ? ` · ${item.regionText}` : ''}
                               </p>
-                            </button>
+                            </div>
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
                               onClick={() => void removeItem(item)}
-                              disabled={deletingId === item.id}
+                              disabled={deletingId === item.id || restoringId !== ''}
                               aria-label="Delete history entry"
+                              className="pointer-events-auto relative z-10 opacity-60 hover:opacity-100"
                             >
                               {deletingId === item.id ? <RefreshCw className="animate-spin" /> : <Trash2 />}
                             </Button>
                           </div>
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <div className="pointer-events-none relative mt-3 flex flex-wrap items-center gap-2">
                             <Badge variant="secondary">{formatNumber(item.recordCount)} records</Badge>
                             {typeof item.readinessAverage === 'number' && (
-                              <Badge variant={item.readinessAverage >= 70 ? 'success' : item.readinessAverage >= 40 ? 'warning' : 'outline'}>
+                              <Badge
+                                variant={
+                                  item.readinessAverage >= 70
+                                    ? 'success'
+                                    : item.readinessAverage >= 40
+                                      ? 'warning'
+                                      : 'outline'
+                                }
+                              >
                                 {item.readinessAverage}% ready
                               </Badge>
                             )}
-                            {item.analysisType && <Badge variant="outline">{humanize(item.analysisType)}</Badge>}
+                            {item.analysisType && (
+                              <Badge variant="outline">{humanize(item.analysisType)}</Badge>
+                            )}
                           </div>
-                          {selected?.id === item.id && (
-                            <div className="mt-3 rounded-md border bg-muted/30 p-3">
-                              <p className="text-sm font-medium">{selected.supportHeadline || 'Saved workflow ready'}</p>
-                              {selectedSummary && (
-                                <p className="mt-1 text-xs leading-5 text-muted-foreground">{selectedSummary}</p>
-                              )}
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                <Button type="button" size="sm" onClick={restoreSelected}>
-                                  <RotateCcw />
-                                  Restore
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                          {loadingEntryId === item.id && (
-                            <p className="mt-3 text-xs text-muted-foreground">Loading saved workflow…</p>
+                          {restoringId === item.id && (
+                            <p className="pointer-events-none relative mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                              <Loader2 className="size-3 animate-spin" /> Loading saved workflow…
+                            </p>
                           )}
                         </article>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
           </div>
-        </aside>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   )
 }
 
