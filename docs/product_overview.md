@@ -17,9 +17,10 @@ The product answers:
 3. OpenAI returns a structured interpretation of the taxon, region, country filters, years, and analysis type.
 4. GBIF Workbench resolves the taxon through the GBIF Backbone.
 5. GBIF Workbench queries public GBIF occurrence summaries and sample records.
-6. OpenAI generates support classification, risks, workflow code, methods text, limitations text, and citation instructions from the live GBIF preview.
-7. The user can confirm or correct taxon, region, country filters, years, and analysis type, then rerun the same live pipeline.
-8. The user exports Markdown, HTML, JSON, SQL, GBIF predicate request JSON, Quarto, Jupyter, or ZIP workflow files.
+6. GBIF Workbench generates support classification and risks from the live preview. It prefers OpenAI structured output, but falls back to deterministic preview-based triage if the optional AI triage call times out.
+7. A separate workflow call generates R, Python, SQL, predicate JSON, cleaning code, methods text, limitations, citation guidance, Markdown, HTML, Quarto, Jupyter, and ZIP-ready files. It also has deterministic export fallback content so exports are not blocked by a slow AI response.
+8. The user can confirm or correct taxon, region, country filters, years, and analysis type, then rerun the same live pipeline.
+9. The user exports Markdown, HTML, complete analysis JSON, deterministic analysis summary, SQL, GBIF predicate request JSON, Quarto, Jupyter, or ZIP workflow files.
 
 ## Core product principle
 

@@ -22,13 +22,15 @@ The `.env` file is ignored by git.
 - Structured Outputs with strict JSON schemas
 - Intent extraction from the user's research question and optional overrides
 - Study assessment and workflow generation grounded in the live GBIF preview
+- Deterministic triage and workflow fallback paths when optional assessment/workflow AI calls time out
 - Strict JSON schemas for intent, triage, risks, readiness dimensions, and workflow text
 
 ## Local API routes
 
 - `GET /api/health`: confirms local API and OpenAI configuration.
 - `POST /api/parse-intent`: returns interpreted study scope without running GBIF preview or assessment.
-- `POST /api/study-plan`: runs intent interpretation, GBIF taxon resolution, GBIF preview, triage, and workflow generation.
+- `POST /api/study-plan`: runs intent interpretation, GBIF taxon resolution, GBIF preview, and triage. If the optional AI triage call times out, the API returns conservative deterministic triage from the live preview.
+- `POST /api/workflow`: generates exportable workflow files from the resolved intent, query, preview, and triage. If the optional AI workflow call times out, the API returns deterministic R, Python, SQL, predicate, cleaning, writeup, citation, Markdown, HTML, notebook, and ZIP-ready content from the live inputs.
 
 The API sets `store: false` for model calls. If the configured model is unavailable to the key, the server queries `/v1/models` and chooses the strongest compatible GPT model available to that account.
 

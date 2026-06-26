@@ -153,6 +153,12 @@ export interface TriageResult {
   nextSteps: string[]
 }
 
+export interface AnalysisModels {
+  intent?: string
+  triage?: string
+  workflow?: string
+}
+
 export interface GbifQuery {
   apiParams: Record<string, string | number | boolean | string[]>
   apiSearchUrl: string

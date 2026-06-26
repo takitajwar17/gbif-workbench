@@ -2,7 +2,7 @@
 
 GBIF Workbench is a bias-aware pre-download research triage tool for GBIF-mediated biodiversity data. It helps users decide whether, when, and how GBIF data can support a proposed study before they request a full download.
 
-The app uses a small Node/Express API. OpenAI structured outputs interpret the user's research question and generate the study assessment/workflow. Public GBIF APIs resolve taxa and fetch live occurrence-preview facts. The browser renders only live API results; demo prompts are only text starters and never load canned GBIF output.
+The app uses a small Node/Express API. OpenAI structured outputs interpret the user's research question and generate richer study assessment/workflow text, while deterministic fallback paths keep triage and exports usable if optional AI calls time out. Public GBIF APIs resolve taxa and fetch live occurrence-preview facts. The browser renders only live API results; demo prompts are only text starters and never load canned GBIF output.
 
 ## Why it exists
 
@@ -40,14 +40,14 @@ npm run build
 - Demo prompt starters that populate the question field without bypassing live analysis.
 - Researcher-focused shadcn/ui + Tailwind interface with accessible forms, cards, tabs, alerts, and export controls.
 - Parse-only scope interpretation before the heavier live GBIF preview.
-- OpenAI Responses API structured outputs for intent extraction, study triage, and workflow text.
+- OpenAI Responses API structured outputs for intent extraction, study triage, and workflow text, with deterministic live-preview fallbacks for triage and exports.
 - Editable interpreted scope before and after preview, including spatial resolution and user skill level.
 - GBIF Backbone taxon resolution through `species/match` and `species/search`.
 - Public GBIF occurrence preview through `occurrence/search` counts, facets, issue flags, taxonomic breakdown, coordinate uncertainty, and sample points.
 - Model-generated data-type triage for distribution/range-shift questions versus abundance/trend questions, grounded in the live GBIF preview.
 - Bias/risk cards for spatial, temporal, source, taxonomic, citation, and occurrence-only mismatch risks.
 - Generated GBIF.org search URL, API preview URL, rgbif workflow, Python workflow, GBIF predicate request JSON, SQL/cube starter query, cleaning pipeline, methods text, limitations text, and citation instructions.
-- Markdown, HTML, JSON, predicate JSON, SQL, Quarto, Jupyter, and ZIP export from the browser.
+- Markdown, HTML, complete analysis JSON, deterministic analysis summary, predicate JSON, SQL, Quarto, Jupyter, and ZIP export from the browser.
 - Short-lived server-side GBIF response caching.
 
 ## Important limitation
@@ -72,4 +72,3 @@ IDEA.md                   original product requirements document
 ## Challenge positioning
 
 GBIF Workbench targets an under-served GBIF workflow stage: research-design triage before download. The value is not a flashy visualization; it is a repeatable, transparent decision-support layer that helps users avoid common misuse of occurrence-only data.
-# gbif

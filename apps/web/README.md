@@ -18,6 +18,8 @@ npm run build
 - `server/index.js`: Express API routes and static production serving.
 - `server/openai.js`: OpenAI Responses API calls with strict structured outputs.
 - `server/gbif.js`: GBIF taxon resolution, occurrence preview, and query construction.
+- `server/lib/fallbackTriage.js`: deterministic live-preview triage when optional AI assessment is unavailable.
+- `server/lib/fallbackWorkflow.js`: deterministic export package generation when optional AI workflow generation is unavailable.
 - `src/lib/exportPackage.ts`: browser ZIP export assembly.
 - `src/lib/regions.ts`: country-code display/edit helpers.
 

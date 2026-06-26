@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     res.status(400).json({ error: validation.error })
     return
   }
-  const { intent, taxon, query, preview, triage } = validation.value
+  const { intent, taxon, query, preview, triage, models } = validation.value
 
   const payload = {
     intent,
@@ -34,12 +34,16 @@ export default async function handler(req, res) {
     query,
     preview,
     triage,
+    models,
     generatedAt: new Date().toISOString(),
   }
 
   try {
     const assessment = await assessWorkflow({ intent, taxon, query, preview, triage })
-    const workflow = finalizeWorkflow(assessment.data, payload)
+    const workflow = finalizeWorkflow(assessment.data, {
+      ...payload,
+      models: { ...models, workflow: assessment.model },
+    })
 
     res.status(200).json({
       workflow,
@@ -65,7 +69,10 @@ export default async function handler(req, res) {
       preview,
       triage,
       reason: message,
-    }), payload)
+    }), {
+      ...payload,
+      models: { ...models, workflow: 'deterministic-workflow-fallback' },
+    })
 
     res.status(200).json({
       workflow,

@@ -80,6 +80,10 @@ describe('createFallbackWorkflow', () => {
     )
 
     expect(workflow.rCode).toContain('occ_search')
+    expect(workflow.rCode).toContain('download_request_json <-')
+    expect(workflow.rCode).toContain('fromJSON(download_request_json, simplifyVector = FALSE)')
+    expect(workflow.rCode).toContain('\\"predicates\\"')
+    expect(workflow.rCode).not.toContain('download_request <- list(')
     expect(workflow.pythonCode).toContain('requests.get')
     expect(workflow.cleaningR).toContain('gbif_occurrences_cleaned.csv')
     expect(workflow.methodsText).toContain('live GBIF occurrence preview')

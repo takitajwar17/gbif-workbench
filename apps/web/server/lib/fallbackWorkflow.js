@@ -89,6 +89,7 @@ export function createFallbackWorkflow({ intent, taxon, query, preview, triage, 
 }
 
 function createRCode({ query }) {
+  const downloadRequestJson = JSON.stringify(createDownloadRequest(query?.downloadPredicate), null, 2)
   return `# GBIF Workbench deterministic export
 # Generated from the live GBIF query and preview. Review filters before publication use.
 
@@ -103,7 +104,8 @@ print(preview$meta$count)
 
 # Serious reuse should create a DOI-backed GBIF download.
 # Set GBIF_USER, GBIF_PWD, and GBIF_EMAIL in your environment first.
-download_request <- ${toRList(createDownloadRequest(query?.downloadPredicate))}
+download_request_json <- ${toRString(downloadRequestJson)}
+download_request <- fromJSON(download_request_json, simplifyVector = FALSE)
 write_json(download_request, "gbif_download_request.json", auto_unbox = TRUE, pretty = TRUE)
 
 # Option A: submit gbif_download_request.json through the GBIF download API.
@@ -207,6 +209,10 @@ function toRValue(value) {
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
   if (typeof value === 'number') return String(value)
   if (value === null || value === undefined) return 'NULL'
+  return JSON.stringify(String(value))
+}
+
+function toRString(value) {
   return JSON.stringify(String(value))
 }
 

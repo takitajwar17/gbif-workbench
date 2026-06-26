@@ -10,6 +10,7 @@ import { ExportButton } from './ExportButton'
 import { FilterSummary } from './FilterSummary'
 import { ProseBlock } from './ProseBlock'
 import { ZipButton } from './ZipButton'
+import { createAnalysisSummary } from '@/lib/exportPackage'
 import type { GbifQuery, TriageResult, WorkflowPackage } from '@/lib/types'
 
 const GROUP_DESCRIPTIONS: Record<WorkflowGroup, string> = {
@@ -74,6 +75,7 @@ export function WorkflowPanel({
         : activeGroup === 'writeup'
           ? `Copy ${writeupLabel}`
           : 'Copy R cleaning'
+  const analysisSummary = useMemo(() => createAnalysisSummary(workflow), [workflow])
 
   return (
     <section id="exports" className="space-y-4">
@@ -191,7 +193,20 @@ export function WorkflowPanel({
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-end pt-1">
+      <div className="flex flex-wrap justify-end gap-2 pt-1">
+        <ExportButton
+          icon={<Download />}
+          label="Analysis summary"
+          filename="gbif-workbench-analysis.md"
+          content={analysisSummary}
+        />
+        <ExportButton
+          icon={<Download />}
+          label="Complete JSON"
+          filename="gbif-workbench-analysis.json"
+          content={workflow.jsonPlan}
+          type="application/json"
+        />
         <ZipButton workflow={workflow} query={query} />
       </div>
     </section>

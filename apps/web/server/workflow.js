@@ -101,8 +101,19 @@ export function validateWorkflowBody(body) {
       query,
       preview,
       triage: triage && typeof triage === 'object' ? triage : null,
+      models: normalizeModels(body.models),
     },
   }
+}
+
+function normalizeModels(models) {
+  if (!models || typeof models !== 'object') return {}
+  return Object.fromEntries(
+    Object.entries(models)
+      .filter(([key, value]) => ['intent', 'triage', 'workflow'].includes(key) && typeof value === 'string')
+      .map(([key, value]) => [key, value.trim()])
+      .filter(([, value]) => value),
+  )
 }
 
 export function seedIntentFromOverrides(overrides) {

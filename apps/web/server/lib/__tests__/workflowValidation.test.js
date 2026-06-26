@@ -73,6 +73,23 @@ describe('validateWorkflowBody — happy path', () => {
     expect(result.value.triage).toBe(triage)
   })
 
+  it('passes through known model metadata fields only', () => {
+    const result = validateWorkflowBody(makePayload({
+      models: {
+        intent: 'gpt-5.4-mini',
+        triage: 'deterministic-preview-fallback',
+        workflow: 123,
+        other: 'ignored',
+      },
+    }))
+
+    expect(result.ok).toBe(true)
+    expect(result.value.models).toEqual({
+      intent: 'gpt-5.4-mini',
+      triage: 'deterministic-preview-fallback',
+    })
+  })
+
   it('normalizes a missing triage to null', () => {
     const payload = makePayload()
     delete payload.triage

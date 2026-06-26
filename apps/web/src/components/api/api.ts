@@ -1,4 +1,5 @@
 import type {
+  AnalysisModels,
   DataPreview,
   GbifQuery,
   StudyIntent,
@@ -13,6 +14,7 @@ interface StudyPlanResponse {
   query: GbifQuery
   preview: DataPreview
   triage: TriageResult
+  models?: AnalysisModels
 }
 
 interface WorkflowResponse {
@@ -31,6 +33,7 @@ export interface WorkflowRequest {
   query: GbifQuery
   preview: DataPreview
   triage: TriageResult | null
+  models?: AnalysisModels
 }
 
 interface IntentResponse {

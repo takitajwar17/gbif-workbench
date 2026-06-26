@@ -6,6 +6,7 @@ import type { WorkflowGroup } from '@/constants/options'
 import { requestStudyIntent, requestStudyPlan, requestStudyWorkflow } from '@/components/api/api'
 import type { StudyPlanRequest } from '@/components/api/api'
 import type {
+  AnalysisModels,
   DataPreview,
   GbifQuery,
   PreferredLanguage,
@@ -99,9 +100,13 @@ export function useAnalyze() {
     }
   }, [])
 
-  function markScopeEdited() {
+  function invalidateCurrentRun() {
     cancelWorkflow()
     runIdRef.current += 1
+  }
+
+  function markScopeEdited() {
+    invalidateCurrentRun()
     setWorkflow(null)
     setWorkflowError(STALE_WORKFLOW_MESSAGE)
     if (status === 'interpreting' || status === 'previewing' || status === 'generating') {
@@ -148,6 +153,7 @@ export function useAnalyze() {
         query: result.query,
         preview: result.preview,
         triage: result.triage,
+        models: result.models,
         runId,
       })
     } catch (caught) {
@@ -167,6 +173,7 @@ export function useAnalyze() {
     query,
     preview,
     triage,
+    models,
     runId,
   }: {
     intent: StudyIntent
@@ -174,13 +181,14 @@ export function useAnalyze() {
     query: GbifQuery
     preview: DataPreview
     triage: TriageResult
+    models?: AnalysisModels
     runId: number
   }) {
     const controller = new AbortController()
     workflowAbortRef.current = controller
     try {
       const result = await requestStudyWorkflow(
-        { intent, taxon, query, preview, triage },
+        { intent, taxon, query, preview, triage, models },
         controller.signal,
       )
       if (runId !== runIdRef.current) return // stale response, ignore
@@ -215,8 +223,7 @@ export function useAnalyze() {
     const validation = validateResearchQuestion(trimmed)
     if (!validation.ok) {
       // Reject early — no API call, no LLM token, no spinner flash.
-      cancelWorkflow()
-      runIdRef.current += 1
+      invalidateCurrentRun()
       setIntent(null)
       setTaxon(null)
       setQuery(null)
@@ -231,8 +238,7 @@ export function useAnalyze() {
     }
     if (trimmed === lastSubmittedRef.current && intent) return // nothing changed
 
-    cancelWorkflow()
-    runIdRef.current += 1
+    invalidateCurrentRun()
     const runId = runIdRef.current
 
     setError('')
@@ -280,8 +286,7 @@ export function useAnalyze() {
     if (!trimmed) return
     const validation = validateResearchQuestion(trimmed)
     if (!validation.ok) {
-      cancelWorkflow()
-      runIdRef.current += 1
+      invalidateCurrentRun()
       setIntent(null)
       setTaxon(null)
       setQuery(null)
@@ -295,8 +300,7 @@ export function useAnalyze() {
       return
     }
     if (intent) {
-      cancelWorkflow()
-      runIdRef.current += 1
+      invalidateCurrentRun()
       await runStudy({ question: trimmed, overrides: { ...intent, preferredLanguage } }, runIdRef.current)
     } else {
       await interpretNow()
@@ -309,8 +313,19 @@ export function useAnalyze() {
     // run's data no longer matches the question being typed. We do NOT
     // kick off any analysis here; the user must click Analyze study to
     // run a new study.
-    if (intent || taxon || preview || triage || workflow || error) {
-      cancelWorkflow()
+    if (
+      status !== 'idle' ||
+      intent ||
+      taxon ||
+      query ||
+      preview ||
+      triage ||
+      workflow ||
+      workflowError ||
+      error ||
+      scopeDirty
+    ) {
+      invalidateCurrentRun()
       setIntent(null)
       setTaxon(null)
       setQuery(null)
@@ -358,7 +373,7 @@ export function useAnalyze() {
   }
 
   function selectDemoPrompt(prompt: string) {
-    cancelWorkflow()
+    invalidateCurrentRun()
     setQuestion(prompt)
     setIntent(null)
     setTaxon(null)
@@ -378,7 +393,7 @@ export function useAnalyze() {
   }
 
   function clearResults() {
-    cancelWorkflow()
+    invalidateCurrentRun()
     setIntent(null)
     setTaxon(null)
     setQuery(null)

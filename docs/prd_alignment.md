@@ -1,11 +1,11 @@
 # IDEA.md Alignment Notes
 
-This implementation follows the GBIF Workbench product definition in `IDEA.md` with one intentional architecture change: the PRD's deterministic service sketch is replaced by OpenAI structured outputs plus live GBIF previews. That version is better for the current product because it handles ambiguous natural-language study scopes, region definitions, and report drafting without shipping hardcoded demo interpretations.
+This implementation follows the GBIF Workbench product definition in `IDEA.md` with one intentional architecture change: the app uses OpenAI structured outputs for ambiguous natural-language interpretation and richer assessment text, while keeping deterministic preview-based fallback paths for triage and export generation. That hybrid version is better for the current product because it handles ambiguous study scopes without shipping canned demo results, but still keeps live GBIF preview and export workflows usable when optional AI calls time out.
 
 ## Kept Because The App Version Is Better
 
-- One `/api/study-plan` orchestration endpoint remains the main workflow instead of requiring separate user-facing parse, preview, triage, and workflow endpoints.
-- OpenAI structured outputs replace a local hardcoded rule engine, while the prompt guardrails and JSON schemas remain visible in `apps/web/server/openai.js`.
+- `/api/study-plan` remains the main preview and triage endpoint, while `/api/workflow` is split out so export generation can run separately and degrade gracefully.
+- OpenAI structured outputs handle intent, AI triage, and AI workflow text, while deterministic fallbacks produce conservative triage and export files from live GBIF inputs when optional AI calls time out.
 - Demo prompts are text starters only. They never load canned reports or fake GBIF data.
 
 ## PRD Gaps Closed
