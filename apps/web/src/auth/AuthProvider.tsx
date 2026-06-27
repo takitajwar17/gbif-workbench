@@ -89,14 +89,9 @@ export function AuthControls() {
   }
 
   return (
-    <div className="flex items-center gap-1">
-      <Button type="button" variant="outline" size="sm" onClick={auth.requestSignIn}>
-        <LogIn />
-        Sign in
-      </Button>
-      <Button type="button" variant="ghost" size="sm" onClick={auth.requestSignUp}>
-        Sign up
-      </Button>
-    </div>
+    <Button type="button" variant="outline" size="sm" onClick={auth.requestSignIn}>
+      <LogIn />
+      Sign in
+    </Button>
   )
 }
