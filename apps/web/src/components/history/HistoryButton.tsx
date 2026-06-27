@@ -51,6 +51,13 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
   const [deletingId, setDeletingId] = useState('')
   const [error, setError] = useState('')
 
+  // The History button is only meaningful for signed-in users: it lists
+  // their saved analyses. Hide it while Clerk is still loading too, so
+  // we don't flash a button that disappears the moment auth resolves.
+  if (!auth.isLoaded || !auth.isSignedIn) {
+    return null
+  }
+
   const loadList = useCallback(async () => {
     if (!auth.isSignedIn) return
     setLoadingList(true)
@@ -69,11 +76,6 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
     if (!auth.isConfigured) {
       setOpen(true)
       setError('Authentication is not configured. Add Clerk keys before using account history.')
-      return
-    }
-    if (!auth.isLoaded) return
-    if (!auth.isSignedIn) {
-      auth.requestSignIn()
       return
     }
     setOpen(true)
@@ -155,7 +157,7 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
         variant="outline"
         size="sm"
         onClick={openHistory}
-        title={auth.isSignedIn ? 'Open account history' : 'Sign in to view account history'}
+        title="Open account history"
       >
         <Clock3 />
         History
@@ -222,22 +224,13 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
                   </Alert>
                 )}
 
-                {!auth.isSignedIn && !error && (
-                  <Alert>
-                    <AlertTitle>Sign in required</AlertTitle>
-                    <AlertDescription>
-                      Account history is saved per Clerk user. Sign in, then run an analysis to create your first entry.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {auth.isSignedIn && loadingList && items.length === 0 && (
+                {!error && loadingList && items.length === 0 && (
                   <div className="flex items-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" /> Loading saved analyses…
                   </div>
                 )}
 
-                {auth.isSignedIn && !loadingList && items.length === 0 && !error && (
+                {!error && !loadingList && items.length === 0 && (
                   <div className="rounded-lg border p-4">
                     <h3 className="text-sm font-medium">No saved analyses yet</h3>
                     <p className="mt-1 text-sm leading-5 text-muted-foreground">
