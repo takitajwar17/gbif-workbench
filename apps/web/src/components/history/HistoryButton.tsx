@@ -51,13 +51,11 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
   const [deletingId, setDeletingId] = useState('')
   const [error, setError] = useState('')
 
-  // The History button is only meaningful for signed-in users: it lists
-  // their saved analyses. Hide it while Clerk is still loading too, so
-  // we don't flash a button that disappears the moment auth resolves.
-  if (!auth.isLoaded || !auth.isSignedIn) {
-    return null
-  }
-
+  // All hooks must run on every render — declare them here, then return
+  // null for signed-out users AFTER the hook calls. The History button
+  // is only meaningful for signed-in users: it lists their saved
+  // analyses. Hide it while Clerk is still loading too, so we don't
+  // flash a button that disappears the moment auth resolves.
   const loadList = useCallback(async () => {
     if (!auth.isSignedIn) return
     setLoadingList(true)
@@ -149,6 +147,10 @@ export function HistoryButton({ onRestore }: { onRestore: (snapshot: HistorySnap
       document.body.style.overflow = previousOverflow
     }
   }, [open])
+
+  if (!auth.isLoaded || !auth.isSignedIn) {
+    return null
+  }
 
   return (
     <>
