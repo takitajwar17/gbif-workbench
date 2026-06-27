@@ -25,7 +25,7 @@ const STATUS_DOT_MAP: Record<Status, string> = {
 export function statusText(status: Status, preview: DataPreview | null, topRisk?: Risk) {
   if (status === 'interpreting') return 'Reading your question…'
   if (status === 'previewing') return 'Querying GBIF and assessing risks…'
-  if (status === 'generating') return 'Result ready — generating workflow…'
+  if (status === 'generating') return 'Result ready, generating workflow...'
   if (status === 'error') return 'Analysis failed'
   if (status === 'ready' && topRisk && preview) {
     return `${formatNumber(preview.counts.withUsableCoordinates)} usable records · top risk: ${topRisk.title}`

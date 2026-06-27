@@ -71,7 +71,7 @@ export function PreviewPanel({ preview }: { preview: DataPreview }) {
         />
         <InfoBox
           title="Sampling-event discovery"
-          body={`Sampling-event datasets carry effort and absence information that ordinary occurrence records don't — useful for trend and abundance claims. ${formatNumber(preview.samplingEvents.datasetHits)} dataset hits checked across ${preview.samplingEvents.countriesChecked.length ? preview.samplingEvents.countriesChecked.join(', ') : 'global GBIF'}.`}
+          body={`Sampling-event datasets carry effort and absence information that ordinary occurrence records don't. Useful for trend and abundance claims. ${formatNumber(preview.samplingEvents.datasetHits)} dataset hits checked across ${preview.samplingEvents.countriesChecked.length ? preview.samplingEvents.countriesChecked.join(', ') : 'global GBIF'}.`}
           detail={preview.samplingEvents.note}
         />
       </div>

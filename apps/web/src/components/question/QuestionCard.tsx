@@ -52,11 +52,11 @@ export function QuestionCard({
     !charCount
       ? 'Aim for one or two sentences with the taxon, place, time window, and analysis you want.'
       : charCount < 40
-        ? 'Try adding more context — a place, time window, and analysis type help the most.'
+        ? 'Try adding more context: a place, time window, and analysis type help the most.'
         : charCount > 600
           ? 'Long questions are fine, but the model focuses best on the first few sentences.'
           : intent
-            ? 'Edit any field in the scope below — press Re-run to apply your changes.'
+            ? 'Edit any field in the scope below. Press Re-run to apply your changes.'
             : 'Looks good. Click Assess study to run the Workbench on this question.'
 
   const [prompts, setPrompts] = useState(() => pickRandomPrompts(3))
@@ -146,7 +146,7 @@ export function QuestionCard({
                   variant="outline"
                   className="h-auto justify-start whitespace-normal p-3 text-left"
                   onClick={() => onDemoSelect(prompt.question)}
-                  aria-label={`Use example: ${prompt.label} — ${prompt.question}`}
+                  aria-label={`Use example: ${prompt.label} - ${prompt.question}`}
                 >
                   <span className="flex w-full gap-2">
                     <span className="flex size-6 shrink-0 items-center justify-center self-start text-primary [&_svg]:size-4" aria-hidden="true">

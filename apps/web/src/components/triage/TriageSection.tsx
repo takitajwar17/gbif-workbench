@@ -88,7 +88,7 @@ export function TriageSection({
           <SectionTitle
             icon={<ShieldAlert />}
             title="Exports"
-            description="R / Python / SQL / cleaning / writeup — built on the assessment above."
+            description="R / Python / SQL / cleaning / writeup - built on the assessment above."
           />
           {hasExports ? (
             <WorkflowPanel

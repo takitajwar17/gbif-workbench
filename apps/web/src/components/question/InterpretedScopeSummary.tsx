@@ -83,7 +83,7 @@ export function InterpretedScopeSummary({
           <h3 className="text-sm font-semibold text-foreground">Interpreted scope</h3>
           {scopeDirty && (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900">
-              Edited — press Re-run
+              Edited. Press Re-run
             </span>
           )}
         </div>

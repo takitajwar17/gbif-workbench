@@ -306,16 +306,16 @@ Recommended order:
 
 Files:
 
-- \`analysis_summary.md\` — human-readable appendix generated from the raw analysis state.
-- \`complete_analysis.json\` — full restorable snapshot (intent, taxon, query, preview, assessment, workflow, models, timestamp).
-- \`data_availability_summary.json\` — backwards-compatible copy of the same snapshot.
-- \`gbif_query_params.json\` — exact GBIF occurrence/search parameters used for the preview.
-- \`gbif_download_request.json\` — exact predicate body for the GBIF download API.
-- \`gbif_download.R\` / \`gbif_download.py\` — submit, poll, and export the DOI-backed download.
-- \`gbif_occurrence_cube.sql\` — SQL/cube starter query for advanced users.
-- \`cleaning_pipeline.R\` — coordinate, date, and duplicate filters that read \`gbif_occurrences.csv\`.
-- \`methods_text.md\` / \`limitations_text.md\` / \`citation_instructions.md\` — drop-in manuscript paragraphs.
-- \`study_plan.qmd\` / \`study_plan.ipynb\` — runnable notebook equivalents of the workflow.
+- \`analysis_summary.md\` - human-readable appendix generated from the raw analysis state.
+- \`complete_analysis.json\` - full restorable snapshot (intent, taxon, query, preview, assessment, workflow, models, timestamp).
+- \`data_availability_summary.json\` - backwards-compatible copy of the same snapshot.
+- \`gbif_query_params.json\` - exact GBIF occurrence/search parameters used for the preview.
+- \`gbif_download_request.json\` - exact predicate body for the GBIF download API.
+- \`gbif_download.R\` / \`gbif_download.py\` - submit, poll, and export the DOI-backed download.
+- \`gbif_occurrence_cube.sql\` - SQL/cube starter query for advanced users.
+- \`cleaning_pipeline.R\` - coordinate, date, and duplicate filters that read \`gbif_occurrences.csv\`.
+- \`methods_text.md\` / \`limitations_text.md\` / \`citation_instructions.md\` - drop-in manuscript paragraphs.
+- \`study_plan.qmd\` / \`study_plan.ipynb\` - runnable notebook equivalents of the workflow.
 `
 }
 

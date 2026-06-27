@@ -19,7 +19,7 @@ const PERCENT_FORMAT = new Intl.NumberFormat(undefined, { style: 'percent', maxi
 const CAMEL_CASE_BOUNDARY = /[A-Z]/g
 
 export function formatNumber(value: number) {
-  if (!Number.isFinite(value)) return '—'
+  if (!Number.isFinite(value)) return '-'
   return INTEGER_FORMAT.format(Math.round(value))
 }
 
@@ -89,7 +89,7 @@ export function friendlyError(message: string, fallback: string): string {
   // so the user just needs to retry the analysis. We name the cause
   // (the AI service) so the user knows it's not their question.
   if (/timed out before it could complete/i.test(message)) {
-    return 'The AI service took too long to respond. The backend already retried — please try the analysis again in a moment.'
+    return 'The AI service took too long to respond. The backend already retried. Please try the analysis again in a moment.'
   }
   // Truncated structured output after all retries exhausted — same
   // shape: server retried with a bigger token budget; ask the user to
