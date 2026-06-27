@@ -30,53 +30,45 @@ GBIF Workbench is deliberately not a generic biodiversity chatbot, not a full mo
 
 ```mermaid
 flowchart LR
-    User[Researcher types a<br/>biodiversity question]
-    Browser[Browser app]
+    User([Researcher types a<br/>biodiversity question])
 
-    Intent[Interpret the question<br/>taxon, region, years, claim]
-    Resolve[Match the taxon on<br/>the GBIF Backbone]
-    Preview[Live occurrence search<br/>counts, facets, issues]
+    subgraph Browser
+        direction LR
+        App[Browser app] --> Intent[Interpret the question]
+        App --> Resolve[Match the taxon on<br/>the GBIF Backbone]
+    end
 
-    Assess[AI fitness-for-use<br/>assessment]
-    AssessFB{{Deterministic<br/>fallback}}
-    Ready[Readiness scores<br/>and risks]
+    subgraph Preview
+        direction LR
+        Search[Live occurrence search<br/>counts, facets, issues]
+    end
 
-    Save1[(Save preview to<br/>account history)]
+    Intent --> Search
+    Resolve --> Search
 
-    Card[Result card shows<br/>scope, evidence, caveats]
+    Search --> Assess{Assess fitness<br/>for use}
+    Assess -->|AI ok| Ready[Readiness scores<br/>and risks]
+    Assess -->|timeout or error| AssessFB{{Deterministic<br/>fallback}}
+    AssessFB --> Ready
 
-    Workflow[Generate reproducible<br/>R, Python, SQL]
-    Parse[Static-check the<br/>generated code]
-    WorkflowFB{{Deterministic<br/>fallback}}
+    Ready --> Save1[(Save preview to<br/>account history)]
+    Save1 --> Card[Result card shows<br/>scope, evidence, caveats]
 
-    Save2[(Update history row<br/>with workflow)]
+    subgraph Export
+        direction LR
+        Card -.background.-> Workflow[Generate reproducible<br/>R, Python, SQL]
+        Workflow --> Parse[Static-check the<br/>generated code]
+        Parse -->|code parses| Save2[(Update history row<br/>with workflow)]
+    end
 
-    Zip[Export package<br/>ready in browser]
+    Parse -->|code broken| WorkflowFB{{Deterministic<br/>fallback}}
+    WorkflowFB --> Save2
+    Workflow -->|timeout or error| WorkflowFB
 
-    Out[Researcher runs the package<br/>locally and gets a DOI<br/>back from GBIF]
+    Save2 --> Zip[Export package<br/>ready in browser]
+    Zip --> Out([Researcher runs the package<br/>locally and gets a DOI<br/>back from GBIF])
 
-    History[History drawer<br/>on return visits]
-
-    User --> Browser
-    Browser --> Intent
-    Browser --> Resolve
-    Intent --> Preview
-    Resolve --> Preview
-    Preview --> Assess
-    Assess -->|AI ok| Ready
-    Assess -->|timeout or error| AssessFB --> Ready
-    Ready --> Save1
-    Save1 --> Card
-
-    Card -.background.-> Workflow
-    Workflow --> Parse
-    Parse -->|code parses| Save2
-    Parse -->|code broken| WorkflowFB --> Save2
-    Workflow -->|timeout or error| WorkflowFB --> Save2
-    Save2 --> Zip
-    Zip --> Out
-
-    History -.next visit.-> Save1
+    History([History drawer<br/>on return visits]) -.->|restore| Save1
     Save1 -.-> Card
 ```
 
