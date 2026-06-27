@@ -41,7 +41,7 @@ flowchart TD
 
     Tri[OpenAI: assessTriage]
     TriFB{{fallbackTriage.js<br/>deterministic}}
-    Norm[normalizeTriage<br/>overwrites readiness<br/>with deterministic formula]
+    Norm[normalizeTriage<br/>overwrites readiness<br/>with computeReadiness]
 
     Save1[(Neon: INSERT<br/>status = preview_ready)]
 
@@ -55,7 +55,7 @@ flowchart TD
 
     Zip[Browser assembles ZIP]
 
-    Out[User runs ZIP locally<br/>occ_download with their<br/>GBIF credentials -> DOI]
+    Out[User runs ZIP locally<br/>occ_download with their<br/>GBIF credentials, gets DOI]
 
     History[History drawer<br/>getHistoryEntry]
 
@@ -79,8 +79,8 @@ flowchart TD
     Save2 --> Zip
     Zip --> Out
 
-    Card -.next visit.-> History
-    History --> Save1
+    History -.next visit.->|GET /api/history?id| Save1
+    Save1 -.-> Card
 ```
 
 A typical run moves left to right across five lanes:
