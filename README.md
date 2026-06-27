@@ -26,6 +26,8 @@ Researchers often download GBIF-mediated occurrence records first and reason abo
 
 GBIF Workbench is deliberately not a generic biodiversity chatbot, not a full modelling platform, and not a universal data-quality score.
 
+![GBIF Workbench: question card on the left with an Alcedo atthis range-shift question, map preview in the centre with sampled European points, top-risk callout for occurrence-only data, and the workflow stepper (Question, Scope, Preview, Export) at the top](assets/1.png)
+
 ## How it works
 
 ```mermaid
@@ -77,6 +79,8 @@ A typical run flows top to bottom across four lanes:
 3. **Assess and export.** A fitness-for-use assessment separates data availability from claim strength. If the optional AI step times out, a deterministic fallback produces the same shape from the live preview. A reproducible R / Python / SQL export package follows; if the generated code fails to parse, a hand-written fallback ships instead.
 4. **Persist and reuse.** A preview-ready row saves to the signed-in researcher's history as soon as the assessment card is ready, then is updated when the workflow exports finish. The researcher runs the exported package locally with their own GBIF credentials and gets a citable DOI back from GBIF. The history drawer restores a previous analysis in one click.
 
+![GBIF Workbench result card: the same Alcedo atthis scope on the left, the occurrence-search preview in the centre showing 2,483,503 matching records, usable coordinates, sample points, and a coordinate-uncertainty note, and the fitness-for-use card on the right with four readiness bars (Spatial 100 STRONG, Temporal 95 STRONG, Taxonomic 93 STRONG, Data type fit 75 GOOD), a "Limited support" headline, and clear conditional / unsupported claim separation](assets/2.png)
+
 ## Run locally
 
 ```bash
@@ -122,7 +126,7 @@ npm run build
 - Demo prompt starters that populate the question field without bypassing live analysis.
 - Researcher-focused shadcn/ui + Tailwind interface with accessible forms, cards, tabs, alerts, and export controls.
 - Parse-only scope interpretation before the heavier live occurrence-search preview.
-- OpenAI Responses API structured outputs for intent extraction, fitness-for-use assessment, and workflow text, with deterministic live-preview fallbacks for assessment and exports.
+- OpenAI Responses API structured outputs for intent extraction, fitness-for-use assessment, and workflow text. Intent failures surface as errors (intent is required); assessment and workflow have deterministic fallbacks grounded in the live occurrence-search preview.
 - Clerk account auth and Vercel-backed analysis history, with restore/delete controls for saved assessments that update when workflow exports finish.
 - Editable interpreted scope before and after preview, including spatial resolution and user skill level.
 - GBIF Backbone taxon resolution through `species/match` and `species/search`.
@@ -140,16 +144,37 @@ The occurrence-search preview does not create a GBIF download DOI. Serious resea
 ## Repository Layout
 
 ```text
-apps/web/                    React + Vite app with Express/Vercel API routes
-apps/web/server/             OpenAI, GBIF, auth, history, retry, and workflow logic
-apps/web/src/components/ui   shadcn-style UI primitives
-apps/web/src/lib/            browser export, formatting, map, and risk helpers
-docs/architecture.md         system design and request flow
-docs/configuration.md        environment, auth, database, and API setup
-docs/scientific-guardrails.md fitness-for-use language and model-output rules
-CONTRIBUTING.md              local setup and pull request expectations
-SECURITY.md                  vulnerability reporting and secret-handling policy
-CODE_OF_CONDUCT.md           contributor conduct expectations
+apps/web/                        React 19 + Vite app, Express/Vercel serverless API
+apps/web/api/                   Vercel serverless function entry points
+  health.js, history.js, parse-intent.js, study-plan.js, workflow.js
+apps/web/server/                OpenAI, GBIF, auth, history, and orchestration logic
+apps/web/server/lib/            Pure helpers, deterministic fallbacks, and validators
+  readinessFormula.js           literature-grounded 4-dimension readiness rubric
+  fallbackTriage.js             rule-based risk card when the AI assessment fails
+  fallbackWorkflow.js           hand-written R, Python, and cleaning exports
+  codeValidator.js              static R + Python parse check on AI-emitted code
+  retryPolicy.js                exponential-backoff + token-budget escalation
+  fallbackPolicy.js             transient-failure classifier for AI calls
+  openaiSchemas.js              strict JSON schemas for the three AI calls
+  openaiPrompts.js              guarded instructions + off-topic sentinel
+  gbifQueryBuilders.js          URL, predicate, and SQL/cube builders
+  lruTtlCache.js                shared LRU+TTL cache factory
+apps/web/src/                   React client
+  hooks/useAnalyze.ts           workspace state machine (race-safe, abort-aware)
+  components/                   ui · form · question · preview · triage · workflow · header · history · api · layout · steps
+  lib/                          browser export package, formatting, map, regions, query guard
+apps/web/scripts/
+  check-workflow-runnable.mjs   CLI harness: parse-checks generated R/Python
+apps/web/.env.example           env var template (OpenAI, Clerk, Neon, retry budgets)
+apps/web/vercel.json            Vercel function maxDuration + rewrites
+apps/web/components.json        shadcn/ui generator config
+docs/architecture.md            system design and request flow
+docs/configuration.md           environment, auth, database, and API setup
+docs/scientific-guardrails.md  fitness-for-use language and model-output rules
+docs/product-demo-video.md      demo video shot list and voiceover script
+CONTRIBUTING.md                 local setup and pull request expectations
+SECURITY.md                     vulnerability reporting and secret-handling policy
+CODE_OF_CONDUCT.md              contributor conduct expectations
 ```
 
 ## Contributing
