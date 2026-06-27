@@ -15,28 +15,14 @@ export interface DemoPrompt {
 export const DEMO_PROMPTS: DemoPrompt[] = [
   // ---- Terrestrial mammals ----
   {
-    label: 'Jaguar range in Brazil',
-    question: 'Where do jaguars (Panthera onca) currently occur in Brazil, and how has their range changed since 2000?',
-  },
-  {
     label: 'Lion distribution model',
     question:
       'Can GBIF occurrence records support a species distribution model for Panthera leo across sub-Saharan Africa?',
   },
   {
-    label: 'Snow leopard highlands',
-    question:
-      'What do GBIF-mediated occurrence records show about the elevational range and country distribution of snow leopards (Panthera uncia) across Central Asia since 2010?',
-  },
-  {
     label: 'African elephant tracking',
     question:
       'How are African bush elephant (Loxodonta africana) occurrence records distributed across countries and protected areas from 2000 to 2024?',
-  },
-  {
-    label: 'Tiger habitat corridors',
-    question:
-      'Can GBIF-mediated occurrence records help scope habitat-corridor questions for Bengal tigers (Panthera tigris tigris) between India, Nepal, and Bhutan?',
   },
   {
     label: 'Wolf recolonization',
@@ -47,11 +33,6 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
     label: 'Bear range expansion',
     question:
       'How has brown bear (Ursus arctos) occurrence expanded into new regions of Italy, France, and Spain over the past two decades?',
-  },
-  {
-    label: 'Primate conservation',
-    question:
-      'What is the distribution of western gorilla (Gorilla gorilla) occurrence records on GBIF, and which countries hold the most records?',
   },
 
   // ---- Birds ----
@@ -92,10 +73,6 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   },
 
   // ---- Reptiles & amphibians ----
-  {
-    label: 'Frog decline in Bangladesh',
-    question: 'Can GBIF-mediated occurrence records support any exploratory evidence for frog population decline in Bangladesh since 2000?',
-  },
   {
     label: 'Salamander hotspots',
     question:
