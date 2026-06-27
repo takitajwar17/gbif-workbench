@@ -26,6 +26,8 @@ Researchers often download GBIF-mediated occurrence records first and reason abo
 
 GBIF Workbench is deliberately not a generic biodiversity chatbot, not a full modelling platform, and not a universal data-quality score.
 
+Under the hood, the readiness rubric is grounded in seven published GBIF methodology papers, the AI calls run through strict JSON schemas with deterministic fallbacks, and the export package is parse-checked before it ships. The current build ships **120 tests across 13 files**, four orthogonal readiness dimensions, and a hand-written R / Python / SQL workflow that runs even if the AI step is unavailable.
+
 ![GBIF Workbench: question card on the left with an Alcedo atthis range-shift question, map preview in the centre with sampled European points, top-risk callout for occurrence-only data, and the workflow stepper (Question, Scope, Preview, Export) at the top](assets/1.png)
 
 **Ask a question.** The workspace shows the interpreted scope on the left, the live occurrence-search preview with sampled points and a coordinate-uncertainty note in the centre, and the top-risk callout for occurrence-only data on the right.
@@ -188,3 +190,26 @@ CODE_OF_CONDUCT.md              contributor conduct expectations
 ## Contributing
 
 Issues and pull requests are welcome. Please read `CONTRIBUTING.md` and keep changes aligned with the scientific guardrails in `docs/scientific-guardrails.md`.
+
+## What this is not
+
+GBIF Workbench has a deliberately narrow scope. It is intentionally **not**:
+
+- A generic biodiversity chatbot, a full species distribution modelling platform, or a tool for population abundance, decline, occupancy, or causal-trend inference. The LLM is constrained by strict JSON schemas, the app does not fit or evaluate models, and GBIF-mediated occurrence-only data cannot support those claims — the app makes that explicit in every report.
+- A replacement for a GBIF download DOI. The exported package is meant to be run on the researcher's local machine with their own GBIF credentials, and the resulting download is what gets cited.
+
+## Acknowledgments
+
+GBIF Workbench stands on the work of others:
+
+- **[OpenAI](https://openai.com/)** — Responses API with structured outputs for intent extraction, fitness-for-use assessment, and workflow generation. Commercial API; the browser never calls it directly.
+- **[Clerk](https://clerk.com/)** — Google sign-in and session token verification for protected API routes. Commercial service.
+- **[Neon](https://neon.tech/)** — Vercel Marketplace Postgres for account history (preview-ready → workflow-ready upserts).
+- **[React 19](https://react.dev/)**, **[Vite 8](https://vitejs.dev/)**, **[TypeScript 6](https://www.typescriptlang.org/)**, **[Tailwind CSS 4](https://tailwindcss.com/)** — the browser stack. All MIT.
+- **[shadcn/ui](https://ui.shadcn.com/)** — UI primitives built on Radix UI (MIT) and Tailwind.
+- **[d3-geo](https://d3js.org/d3-geo)** and **[topojson-client](https://github.com/topojson/topojson-client)** — map projection and geometry decoding. ISC.
+- **[world-atlas](https://github.com/topojson/world-atlas)** — country outlines for the preview map. ISC.
+- **[lucide-react](https://lucide.dev/)** — icon set. ISC.
+- **[jszip](https://stuk.github.io/jszip/)** — browser-side ZIP assembly for the export package. Dual-licensed MIT or GPL-3.0-or-later; this project uses it under MIT.
+- **[express](https://expressjs.com/)** — local dev API shell that mounts the same handlers Vercel serves from `apps/web/api/*.js`. MIT.
+- **[CoordinateCleaner](https://github.com/ropensci/CoordinateCleaner)** — referenced in the generated R cleaning pipeline as an optional package. MIT.
