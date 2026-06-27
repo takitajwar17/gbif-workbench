@@ -28,15 +28,15 @@ GBIF Workbench is deliberately not a generic biodiversity chatbot, not a full mo
 
 Under the hood, the readiness rubric is grounded in seven published GBIF methodology papers, the AI calls run through strict JSON schemas with deterministic fallbacks, and the export package is parse-checked before it ships. The current build ships **120 tests across 13 files**, four orthogonal readiness dimensions, and a hand-written R / Python / SQL workflow that runs even if the AI step is unavailable.
 
-![GBIF Workbench: question card on the left with an Alcedo atthis range-shift question, map preview in the centre with sampled European points, top-risk callout for occurrence-only data, and the workflow stepper (Question, Scope, Preview, Export) at the top](assets/1.png)
+![GBIF Workbench: question card on the left with an Alcedo atthis range-shift question, map preview in the centre with sampled European points, top-risk callout for occurrence-only data, and the workflow stepper (Question, Scope, Preview, Export) at the top](docs/screenshots/1.png)
 
 **Ask a question.** The workspace shows the interpreted scope on the left, the live occurrence-search preview with sampled points and a coordinate-uncertainty note in the centre, and the top-risk callout for occurrence-only data on the right.
 
-![GBIF Workbench result card: the same Alcedo atthis scope on the left, the occurrence-search preview in the centre showing 2,483,503 matching records, usable coordinates, sample points, and a coordinate-uncertainty note, and the fitness-for-use card on the right with four readiness bars (Spatial 100 STRONG, Temporal 95 STRONG, Taxonomic 93 STRONG, Data type fit 75 GOOD), a "Limited support" headline, and clear conditional / unsupported claim separation](assets/2.png)
+![GBIF Workbench result card: the same Alcedo atthis scope on the left, the occurrence-search preview in the centre showing 2,483,503 matching records, usable coordinates, sample points, and a coordinate-uncertainty note, and the fitness-for-use card on the right with four readiness bars (Spatial 100 STRONG, Temporal 95 STRONG, Taxonomic 93 STRONG, Data type fit 75 GOOD), a "Limited support" headline, and clear conditional / unsupported claim separation](docs/screenshots/2.png)
 
 **Read the result card.** Four orthogonal readiness bars (Spatial, Temporal, Taxonomic, Data type fit), a clear support headline, and an explicit separation between claims occurrence-only data can support and claims it cannot.
 
-![GBIF Workbench bias checks and export panel. Left: the bias and limitation card with 4 checks (one HIGH occurrence-only-mismatch risk, one MODERATE AI-fallback notice, two LOW coverage risks). Right: the export panel with Code / Query / Write-up / Cleaning tabs, showing the generated SQL cube starter query against the GBIF occurrence cube, the SQL and Predicate tabs, and the Analysis summary, Complete JSON, and Download everything (.zip) buttons.](assets/3.png)
+![GBIF Workbench bias checks and export panel. Left: the bias and limitation card with 4 checks (one HIGH occurrence-only-mismatch risk, one MODERATE AI-fallback notice, two LOW coverage risks). Right: the export panel with Code / Query / Write-up / Cleaning tabs, showing the generated SQL cube starter query against the GBIF occurrence cube, the SQL and Predicate tabs, and the Analysis summary, Complete JSON, and Download everything (.zip) buttons.](docs/screenshots/3.png)
 
 **Bias checks and export package.** The bias card on the left flags data-use risks for the proposed study; the export panel on the right ships a reproducible R, Python, SQL, cleaning, methods, limitations, citations, Markdown, and HTML workflow, plus the analysis summary, complete JSON, and a single ZIP built in the browser.
 
