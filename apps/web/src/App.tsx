@@ -42,15 +42,6 @@ function App() {
             </span>
           </a>
           <nav className="hidden items-center gap-1 text-sm text-muted-foreground md:flex" aria-label="Primary navigation">
-            <Button variant="ghost" size="sm" asChild>
-              <a href="#workspace">Workspace</a>
-            </Button>
-            <Button variant="ghost" size="sm" asChild>
-              <a href="#method">Method</a>
-            </Button>
-            <Button variant="ghost" size="sm" asChild={state.workflow ? true : false} disabled={!state.workflow}>
-              {state.workflow ? <a href="#exports">Exports</a> : <span aria-disabled="true" title="Run analysis first to enable Exports">Exports</span>}
-            </Button>
           </nav>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" asChild>
@@ -92,24 +83,6 @@ function App() {
         </div>
         {mobileNavOpen && (
           <nav id="mobile-nav" className="border-t bg-background px-4 py-2 md:hidden" aria-label="Mobile navigation">
-            <div className="mx-auto flex max-w-[1760px] flex-col gap-1">
-              <Button variant="ghost" size="sm" asChild className="justify-start" onClick={() => setMobileNavOpen(false)}>
-                <a href="#workspace">Workspace</a>
-              </Button>
-              <Button variant="ghost" size="sm" asChild className="justify-start" onClick={() => setMobileNavOpen(false)}>
-                <a href="#method">Method</a>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                asChild={state.workflow ? true : false}
-                disabled={!state.workflow}
-                className="justify-start"
-                onClick={() => setMobileNavOpen(false)}
-              >
-                {state.workflow ? <a href="#exports">Exports</a> : <span aria-disabled="true">Exports</span>}
-              </Button>
-            </div>
           </nav>
         )}
       </header>
