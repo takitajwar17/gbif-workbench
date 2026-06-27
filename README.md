@@ -30,68 +30,62 @@ GBIF Workbench is deliberately not a generic biodiversity chatbot, not a full mo
 
 ```mermaid
 flowchart TD
-    User[Researcher types question<br/>and clicks Assess study]
-    Browser[React browser app<br/>no direct OpenAI/GBIF calls]
+    User[Researcher types a<br/>biodiversity question]
+    Browser[Browser app]
 
-    Auth[Clerk: verify bearer token<br/>+ prompt-injection guard]
+    Intent[Interpret the question<br/>taxon, region, years, claim]
+    Resolve[Match the taxon on<br/>the GBIF Backbone]
+    Preview[Live occurrence search<br/>counts, facets, issues]
 
-    Intent[/api/parse-intent<br/>interpretStudyIntent/]
-    Taxon[/species/match + /species/search/]
-    Preview[/occurrence/search x4<br/>+ dataset, sampling-event/]
+    Assess[AI fitness-for-use<br/>assessment]
+    AssessFB{{Deterministic<br/>fallback}}
+    Ready[Readiness scores<br/>and risks]
 
-    Tri[OpenAI: assessTriage]
-    TriFB{{fallbackTriage.js<br/>deterministic}}
-    Norm[normalizeTriage<br/>overwrites readiness<br/>with computeReadiness]
+    Save1[(Save preview to<br/>account history)]
 
-    Save1[(Neon: INSERT<br/>status = preview_ready)]
+    Card[Result card shows<br/>scope, evidence, caveats]
 
-    Card[Result card renders<br/>scope · preview · triage · risks]
+    Workflow[Generate reproducible<br/>R, Python, SQL]
+    Parse[Static-check the<br/>generated code]
+    WorkflowFB{{Deterministic<br/>fallback}}
 
-    Workflow[/api/workflow<br/>assessWorkflow · AbortController/]
-    Parse[codeValidator<br/>Rscript + python3 parse]
-    WFB{{fallbackWorkflow.js<br/>hand-written R/Python}}
+    Save2[(Update history row<br/>with workflow)]
 
-    Save2[(Neon: UPSERT<br/>status = workflow_ready)]
+    Zip[Export package<br/>ready in browser]
 
-    Zip[Browser assembles ZIP]
+    Out[Researcher runs the package<br/>locally and gets a DOI<br/>back from GBIF]
 
-    Out[User runs ZIP locally<br/>occ_download with their<br/>GBIF credentials, gets DOI]
-
-    History[History drawer<br/>getHistoryEntry]
+    History[History drawer<br/>on return visits]
 
     User --> Browser
-    Browser -->|POST + Bearer token| Auth
-    Auth --> Intent
-    Auth --> Taxon
+    Browser --> Intent
+    Browser --> Resolve
     Intent --> Preview
-    Taxon --> Preview
-    Preview --> Tri
-    Tri -->|AI ok| Norm
-    Tri -->|timeout / 5xx / 429| TriFB --> Norm
-    Norm --> Save1
+    Resolve --> Preview
+    Preview --> Assess
+    Assess -->|AI ok| Ready
+    Assess -->|timeout or error| AssessFB --> Ready
+    Ready --> Save1
     Save1 --> Card
 
-    Card -.fire-and-forget.-> Workflow
+    Card -.background.-> Workflow
     Workflow --> Parse
-    Parse -->|valid code| Save2
-    Parse -->|unparseable| WFB --> Save2
-    Workflow -->|timeout / 5xx / 429| WFB --> Save2
+    Parse -->|code parses| Save2
+    Parse -->|code broken| WorkflowFB --> Save2
+    Workflow -->|timeout or error| WorkflowFB --> Save2
     Save2 --> Zip
     Zip --> Out
 
-    History -.next visit.->|GET /api/history?id| Save1
+    History -.next visit.-> Save1
     Save1 -.-> Card
 ```
 
-A typical run moves left to right across five lanes:
+A typical run moves left to right across four lanes:
 
-1. **Browser.** Researcher types a question. Every API call sends a Clerk bearer token.
-2. **API.** `parse-intent` interprets the question, `study-plan` resolves the taxon against the GBIF Backbone and fetches a live occurrence-search preview, `workflow` generates the long-form reproducible code.
-3. **AI + data.** OpenAI structured outputs do the interpretive work. Public GBIF endpoints supply live counts, facets, datasets, and sampling-event discovery.
-4. **Deterministic fallbacks.** When the optional AI call times out, returns 5xx/429, or emits unparseable code, a hand-written replacement produces the same shape of output from the live preview.
-5. **Persistence.** A `preview_ready` row saves as soon as the assessment card is ready. The same row is upserted to `workflow_ready` when the export package finishes. The history drawer restores from the JSON payload column.
-
-The ZIP the browser produces is designed to run on the researcher's local machine with their own GBIF credentials, so the resulting download gets a citable DOI from GBIF. The app never stores GBIF credentials and never downloads records on the user's behalf.
+1. **Interpret.** The researcher's plain-language question becomes a structured study scope (taxon, region, year window, intended claim) and the taxon is resolved against the GBIF Backbone.
+2. **Preview.** GBIF Workbench fetches a live occurrence-search preview for the exact scope: matching records, usable coordinates, year and country facets, datasets, issue flags, and a sampling-event discovery signal.
+3. **Assess and export.** A fitness-for-use assessment separates data availability from claim strength. If the optional AI step times out, a deterministic fallback produces the same shape from the live preview. A reproducible R / Python / SQL export package follows; if the generated code fails to parse, a hand-written fallback ships instead.
+4. **Persist and reuse.** A preview-ready row saves to the signed-in researcher's history as soon as the assessment card is ready, then is updated when the workflow exports finish. The researcher runs the exported package locally with their own GBIF credentials and gets a citable DOI back from GBIF. The history drawer restores a previous analysis in one click.
 
 ## Run locally
 
