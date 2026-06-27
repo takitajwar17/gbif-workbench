@@ -28,6 +28,12 @@ GBIF Workbench is deliberately not a generic biodiversity chatbot, not a full mo
 
 ![GBIF Workbench: question card on the left with an Alcedo atthis range-shift question, map preview in the centre with sampled European points, top-risk callout for occurrence-only data, and the workflow stepper (Question, Scope, Preview, Export) at the top](assets/1.png)
 
+**Ask a question.** The workspace shows the interpreted scope on the left, the live occurrence-search preview with sampled points and a coordinate-uncertainty note in the centre, and the top-risk callout for occurrence-only data on the right.
+
+![GBIF Workbench result card: the same Alcedo atthis scope on the left, the occurrence-search preview in the centre showing 2,483,503 matching records, usable coordinates, sample points, and a coordinate-uncertainty note, and the fitness-for-use card on the right with four readiness bars (Spatial 100 STRONG, Temporal 95 STRONG, Taxonomic 93 STRONG, Data type fit 75 GOOD), a "Limited support" headline, and clear conditional / unsupported claim separation](assets/2.png)
+
+**Read the result card.** Four orthogonal readiness bars (Spatial, Temporal, Taxonomic, Data type fit), a clear support headline, and an explicit separation between claims occurrence-only data can support and claims it cannot.
+
 ## How it works
 
 ```mermaid
@@ -78,8 +84,6 @@ A typical run flows top to bottom across four lanes:
 2. **Preview.** GBIF Workbench fetches a live occurrence-search preview for the exact scope: matching records, usable coordinates, year and country facets, datasets, issue flags, and a sampling-event discovery signal.
 3. **Assess and export.** A fitness-for-use assessment separates data availability from claim strength. If the optional AI step times out, a deterministic fallback produces the same shape from the live preview. A reproducible R / Python / SQL export package follows; if the generated code fails to parse, a hand-written fallback ships instead.
 4. **Persist and reuse.** A preview-ready row saves to the signed-in researcher's history as soon as the assessment card is ready, then is updated when the workflow exports finish. The researcher runs the exported package locally with their own GBIF credentials and gets a citable DOI back from GBIF. The history drawer restores a previous analysis in one click.
-
-![GBIF Workbench result card: the same Alcedo atthis scope on the left, the occurrence-search preview in the centre showing 2,483,503 matching records, usable coordinates, sample points, and a coordinate-uncertainty note, and the fitness-for-use card on the right with four readiness bars (Spatial 100 STRONG, Temporal 95 STRONG, Taxonomic 93 STRONG, Data type fit 75 GOOD), a "Limited support" headline, and clear conditional / unsupported claim separation](assets/2.png)
 
 ## Run locally
 
