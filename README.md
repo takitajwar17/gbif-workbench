@@ -29,21 +29,19 @@ GBIF Workbench is deliberately not a generic biodiversity chatbot, not a full mo
 ## How it works
 
 ```mermaid
-flowchart LR
+flowchart TB
     User([Researcher types a<br/>biodiversity question])
+    User --> App[Browser app]
 
-    subgraph Browser
+    subgraph Inputs
         direction LR
-        App[Browser app] --> Intent[Interpret the question]
-        App --> Resolve[Match the taxon on<br/>the GBIF Backbone]
+        Intent[Interpret the question<br/>taxon, region, years, claim]
+        Resolve[Match the taxon on<br/>the GBIF Backbone]
+        App --> Intent
+        App --> Resolve
     end
 
-    subgraph Preview
-        direction LR
-        Search[Live occurrence search<br/>counts, facets, issues]
-    end
-
-    Intent --> Search
+    Intent --> Search[Live occurrence search<br/>counts, facets, issues]
     Resolve --> Search
 
     Search --> Assess{Assess fitness<br/>for use}
@@ -54,16 +52,16 @@ flowchart LR
     Ready --> Save1[(Save preview to<br/>account history)]
     Save1 --> Card[Result card shows<br/>scope, evidence, caveats]
 
-    subgraph Export
-        direction LR
-        Card -.background.-> Workflow[Generate reproducible<br/>R, Python, SQL]
-        Workflow --> Parse[Static-check the<br/>generated code]
-        Parse -->|code parses| Save2[(Update history row<br/>with workflow)]
-    end
+    Card -.background.-> Workflow[Generate reproducible<br/>R, Python, SQL]
+    Workflow --> Parse[Static-check the<br/>generated code]
 
-    Parse -->|code broken| WorkflowFB{{Deterministic<br/>fallback}}
-    WorkflowFB --> Save2
-    Workflow -->|timeout or error| WorkflowFB
+    subgraph Handlers
+        direction LR
+        Parse -->|code parses| Save2[(Update history row<br/>with workflow)]
+        Parse -->|code broken| WorkflowFB{{Deterministic<br/>fallback}}
+        Workflow -->|timeout or error| WorkflowFB
+        WorkflowFB --> Save2
+    end
 
     Save2 --> Zip[Export package<br/>ready in browser]
     Zip --> Out([Researcher runs the package<br/>locally and gets a DOI<br/>back from GBIF])
@@ -72,7 +70,7 @@ flowchart LR
     Save1 -.-> Card
 ```
 
-A typical run moves left to right across four lanes:
+A typical run flows top to bottom across four lanes:
 
 1. **Interpret.** The researcher's plain-language question becomes a structured study scope (taxon, region, year window, intended claim) and the taxon is resolved against the GBIF Backbone.
 2. **Preview.** GBIF Workbench fetches a live occurrence-search preview for the exact scope: matching records, usable coordinates, year and country facets, datasets, issue flags, and a sampling-event discovery signal.
