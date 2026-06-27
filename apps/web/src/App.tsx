@@ -1,5 +1,5 @@
-import { AlertTriangle, Loader2, Menu, Play, X } from 'lucide-react'
-import { lazy, Suspense, useState } from 'react'
+import { AlertTriangle, Loader2, Play } from 'lucide-react'
+import { lazy, Suspense } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useAnalyze } from './hooks/useAnalyze'
@@ -20,7 +20,6 @@ const TriageSection = lazy(() =>
 
 function App() {
   const state = useAnalyze()
-  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   return (
     <div className="grid min-h-screen grid-rows-[auto_1fr_auto] bg-background xl:h-screen xl:overflow-hidden">
@@ -41,8 +40,6 @@ function App() {
               <span className="block truncate text-xs text-muted-foreground">Occurrence-data fitness-for-use</span>
             </span>
           </a>
-          <nav className="hidden items-center gap-1 text-sm text-muted-foreground md:flex" aria-label="Primary navigation">
-          </nav>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" asChild>
               <a
@@ -67,24 +64,8 @@ function App() {
               {state.isBusy ? <Loader2 className="animate-spin" /> : <Play />}
               {state.isBusy ? 'Assessing…' : 'Assess study'}
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              aria-label={mobileNavOpen ? 'Close navigation' : 'Open navigation'}
-              aria-expanded={mobileNavOpen}
-              aria-controls="mobile-nav"
-              onClick={() => setMobileNavOpen((value) => !value)}
-            >
-              {mobileNavOpen ? <X /> : <Menu />}
-            </Button>
           </div>
         </div>
-        {mobileNavOpen && (
-          <nav id="mobile-nav" className="border-t bg-background px-4 py-2 md:hidden" aria-label="Mobile navigation">
-          </nav>
-        )}
       </header>
 
       <main id="workspace" className="mx-auto flex w-full max-w-[1760px] min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 lg:px-6" aria-busy={state.isBusy}>

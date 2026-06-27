@@ -4,6 +4,22 @@ import { LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AuthContext, disabledAuth, useAppAuth, type AuthContextValue } from './auth-context'
 
+const clerkAppearance = {
+  elements: {
+    modalBackdrop: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100dvh',
+      padding: '24px',
+    },
+    modalContent: {
+      margin: 'auto',
+      maxHeight: 'calc(100dvh - 48px)',
+    },
+  },
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
@@ -12,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ClerkProvider publishableKey={publishableKey} afterSignOutUrl="/">
+    <ClerkProvider publishableKey={publishableKey} afterSignOutUrl="/" appearance={clerkAppearance}>
       <ClerkAuthBridge>{children}</ClerkAuthBridge>
     </ClerkProvider>
   )
@@ -26,14 +42,14 @@ function ClerkAuthBridge({ children }: { children: ReactNode }) {
   const requestSignIn = useCallback(() => {
     if (!isLoaded) return false
     if (isSignedIn) return true
-    clerk.openSignIn()
+    clerk.openSignIn({ appearance: clerkAppearance })
     return false
   }, [clerk, isLoaded, isSignedIn])
 
   const requestSignUp = useCallback(() => {
     if (!isLoaded) return false
     if (isSignedIn) return true
-    clerk.openSignUp()
+    clerk.openSignUp({ appearance: clerkAppearance })
     return false
   }, [clerk, isLoaded, isSignedIn])
 
