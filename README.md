@@ -36,9 +36,9 @@ Under the hood, the readiness rubric is grounded in seven published GBIF methodo
 
 **Read the result card.** Four orthogonal readiness bars (Spatial, Temporal, Taxonomic, Data type fit), a clear support headline, and an explicit separation between claims occurrence-only data can support and claims it cannot.
 
-![GBIF Workbench exports and bias checks. Left: bias and limitation checks (4 total — one HIGH occurrence-only-mismatch risk, one MODERATE AI-fallback notice, two LOW coverage risks). Right: the export panel with Code / Query / Write-up / Cleaning tabs, showing the generated SQL cube starter query against the GBIF occurrence cube, the SQL and Predicate tabs, and the Analysis summary, Complete JSON, and Download everything (.zip) buttons](assets/3.png)
+![GBIF Workbench bias checks and export panel. Left: the bias and limitation card with 4 checks (one HIGH occurrence-only-mismatch risk, one MODERATE AI-fallback notice, two LOW coverage risks). Right: the export panel with Code / Query / Write-up / Cleaning tabs, showing the generated SQL cube starter query against the GBIF occurrence cube, the SQL and Predicate tabs, and the Analysis summary, Complete JSON, and Download everything (.zip) buttons.](assets/3.png)
 
-**Export a reproducible workflow.** Every risk surfaced in the bias card has a matching line in the generated export package: R, Python, SQL, cleaning, methods, limitations, citations, Markdown, HTML, plus the analysis summary and complete JSON. The ZIP is built in the browser; the researcher runs `occ_download` locally with their own GBIF credentials and cites the resulting DOI.
+**Bias checks and export package.** The bias card on the left flags data-use risks for the proposed study; the export panel on the right ships a reproducible R, Python, SQL, cleaning, methods, limitations, citations, Markdown, and HTML workflow, plus the analysis summary, complete JSON, and a single ZIP built in the browser.
 
 ## How it works
 
