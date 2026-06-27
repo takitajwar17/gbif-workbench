@@ -19,7 +19,7 @@ export function WorkflowProgress({
 }) {
   // Derive a 'loading' state for whichever step is currently in flight.
   // Scope is loading while we're interpreting the question, Preview while
-  // we're fetching GBIF data. Question and Export have no async phase of
+  // we're fetching the occurrence-search preview. Question and Export have no async phase of
   // their own so they never enter 'loading'.
   const steps: { label: string; description: string; state: StepState }[] = [
     { label: 'Question', description: 'Describe your study', state: question.trim() ? 'done' : 'current' },
@@ -36,7 +36,7 @@ export function WorkflowProgress({
     },
     {
       label: 'Preview',
-      description: 'Fetch GBIF data',
+      description: 'Preview occurrences',
       state: status === 'previewing' && intent && !preview
         ? 'loading'
         : preview

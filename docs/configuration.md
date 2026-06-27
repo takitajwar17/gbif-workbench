@@ -38,9 +38,9 @@ GBIF_RETRY_BACKOFF_MS=750
 - `POST /v1/responses`
 - Structured Outputs with strict JSON schemas
 - Intent extraction from the user's research question and optional overrides
-- Study assessment and workflow generation grounded in the live GBIF preview
-- Deterministic triage and workflow fallback paths when optional assessment/workflow AI calls time out
-- Strict JSON schemas for intent, triage, risks, readiness dimensions, and workflow text
+- Fitness-for-use assessment and workflow generation grounded in the live occurrence-search preview
+- Deterministic assessment and workflow fallback paths when optional assessment/workflow AI calls time out
+- Strict JSON schemas for intent, assessment, risks, readiness dimensions, and workflow text
 
 ## Local API routes
 
@@ -48,9 +48,9 @@ GBIF_RETRY_BACKOFF_MS=750
 - `GET /api/history`: requires a verified Clerk session and returns saved analysis history for the signed-in account.
 - `GET /api/history?id=...`: requires a verified Clerk session and returns one full restorable history snapshot.
 - `DELETE /api/history?id=...`: requires a verified Clerk session and deletes one saved history entry owned by the signed-in account.
-- `POST /api/parse-intent`: requires a verified Clerk session and returns interpreted study scope without running GBIF preview or assessment.
-- `POST /api/study-plan`: requires a verified Clerk session, runs intent interpretation, GBIF taxon resolution, GBIF preview, and triage. If `DATABASE_URL` is configured, the preview-ready result is saved to account history. If the optional AI triage call times out, the API returns conservative deterministic triage from the live preview.
-- `POST /api/workflow`: requires a verified Clerk session and generates exportable workflow files from the resolved intent, query, preview, and triage. Existing preview-ready history rows are updated when workflow exports finish. If the optional AI workflow call times out, the API returns deterministic R, Python, SQL, predicate, cleaning, writeup, citation, Markdown, HTML, notebook, and ZIP-ready content from the live inputs.
+- `POST /api/parse-intent`: requires a verified Clerk session and returns interpreted study scope without running the occurrence-search preview or assessment.
+- `POST /api/study-plan`: requires a verified Clerk session, runs intent interpretation, GBIF taxon resolution, occurrence-search preview, and fitness-for-use assessment. If `DATABASE_URL` is configured, the preview-ready result is saved to account history. If the optional AI assessment call times out, the API returns a conservative deterministic assessment from the live preview.
+- `POST /api/workflow`: requires a verified Clerk session and generates exportable workflow files from the resolved intent, query, preview, and assessment. Existing preview-ready history rows are updated when workflow exports finish. If the optional AI workflow call times out, the API returns deterministic R, Python, SQL, predicate, cleaning, writeup, citation, Markdown, HTML, notebook, and ZIP-ready content from the live inputs.
 
 ## Authentication
 
@@ -73,7 +73,7 @@ vercel env pull .env.local
 
 If Vercel returns `integration_terms_acceptance_required`, open the verification URL it prints, accept the Neon Marketplace terms, then rerun the same `vercel integration add neon ...` command.
 
-The API accepts `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, or `NEON_DATABASE_URL`. On first history use, the server creates `gbif_workbench_history` with a per-user index. Each row belongs to the Clerk `userId` and stores a compact list summary plus the full JSON snapshot needed to restore the preview verdict. When workflow exports finish, the same row is updated with the export package.
+The API accepts `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, or `NEON_DATABASE_URL`. On first history use, the server creates `gbif_workbench_history` with a per-user index. Each row belongs to the Clerk `userId` and stores a compact list summary plus the full JSON snapshot needed to restore the preview assessment. When workflow exports finish, the same row is updated with the export package.
 
 The API sets `store: false` for model calls. If the configured model is unavailable to the key, the server queries `/v1/models` and chooses the strongest compatible GPT model available to that account.
 
@@ -85,7 +85,7 @@ The API sets `store: false` for model calls. If the configured model is unavaila
 - `https://api.gbif.org/v1/dataset/{key}`
 - `https://api.gbif.org/v1/dataset/search?type=SAMPLING_EVENT`
 
-## Preview strategy
+## Occurrence-search preview strategy
 
 GBIF Workbench uses `occurrence/search` with `limit=0` and facets for planning summaries:
 
@@ -96,11 +96,11 @@ GBIF Workbench uses `occurrence/search` with `limit=0` and facets for planning s
 - `issue`
 - `speciesKey`
 
-It also fetches a small sample of georeferenced records for map preview and coordinate uncertainty diagnostics. These facts are passed to OpenAI so generated claims are grounded in live GBIF results.
+It also fetches a small sample of georeferenced records for map preview and coordinate uncertainty diagnostics. These facts are passed to OpenAI so generated claims are grounded in live occurrence-search results.
 
 ## Download strategy
 
-The app does not submit authenticated GBIF downloads. Instead, it generates rgbif and API code that users can run locally with their GBIF.org credentials. This avoids collecting GBIF credentials in the app and preserves GBIF DOI-backed reproducibility.
+The app does not submit authenticated GBIF occurrence downloads. Instead, it generates rgbif and API code that users can run locally with their GBIF.org credentials. This avoids collecting GBIF credentials in the app and preserves GBIF DOI-backed reproducibility.
 
 ## Caching
 

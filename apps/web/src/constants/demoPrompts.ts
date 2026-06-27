@@ -26,7 +26,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Snow leopard highlands',
     question:
-      'What does GBIF tell us about the elevational range and country distribution of snow leopards (Panthera uncia) across Central Asia since 2010?',
+      'What do GBIF-mediated occurrence records show about the elevational range and country distribution of snow leopards (Panthera uncia) across Central Asia since 2010?',
   },
   {
     label: 'African elephant tracking',
@@ -36,7 +36,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Tiger habitat corridors',
     question:
-      'Use GBIF data to identify remaining habitat corridors for Bengal tigers (Panthera tigris tigris) between India, Nepal, and Bhutan.',
+      'Can GBIF-mediated occurrence records help scope habitat-corridor questions for Bengal tigers (Panthera tigris tigris) between India, Nepal, and Bhutan?',
   },
   {
     label: 'Wolf recolonization',
@@ -51,7 +51,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Primate conservation',
     question:
-      'What is the distribution of the western gorilla (Gorilla gorilla) on GBIF, and which countries hold the most occurrence records?',
+      'What is the distribution of western gorilla (Gorilla gorilla) occurrence records on GBIF, and which countries hold the most records?',
   },
 
   // ---- Birds ----
@@ -63,27 +63,27 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Migratory shorebirds',
     question:
-      'What does GBIF tell us about the seasonal migration timing of bar-tailed godwits (Limosa lapponica) along the East Asian–Australasian Flyway?',
+      'What do GBIF-mediated occurrence records show about seasonal migration timing of bar-tailed godwits (Limosa lapponica) along the East Asian-Australasian Flyway?',
   },
   {
     label: 'Raptor decline',
     question:
-      'Are there signs of decline in common buzzard (Buteo buteo) records in the United Kingdom over the last 30 years based on GBIF data?',
+      'Can GBIF-mediated occurrence records support exploratory evidence of change in common buzzard (Buteo buteo) records in the United Kingdom over the last 30 years?',
   },
   {
     label: 'Owl distribution',
     question:
-      'Compare the distribution of tawny owls (Strix aluco) on GBIF across Britain, France, and Germany in the last decade.',
+      'Compare GBIF occurrence records for tawny owls (Strix aluco) across Britain, France, and Germany in the last decade.',
   },
   {
     label: 'Songbird phenology',
     question:
-      'Use GBIF records to test whether the breeding phenology of European robins (Erithacus rubecula) has shifted earlier over the past 50 years.',
+      'Can GBIF occurrence records support an exploratory study of breeding phenology shifts in European robins (Erithacus rubecula) over the past 50 years?',
   },
   {
     label: 'Penguin colonies',
     question:
-      'What is the spatial distribution of emperor penguin (Aptenodytes forsteri) colonies in Antarctica according to GBIF, and which datasets contribute the most records?',
+      'What is the spatial distribution of emperor penguin (Aptenodytes forsteri) occurrence records in Antarctica, and which GBIF datasets contribute the most records?',
   },
   {
     label: 'Hummingbird species richness across the Andes',
@@ -94,17 +94,17 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   // ---- Reptiles & amphibians ----
   {
     label: 'Frog decline in Bangladesh',
-    question: 'Can GBIF show whether frog populations are declining in Bangladesh since 2000?',
+    question: 'Can GBIF-mediated occurrence records support any exploratory evidence for frog population decline in Bangladesh since 2000?',
   },
   {
     label: 'Salamander hotspots',
     question:
-      'Where are the GBIF record hotspots for fire salamanders (Salamandra salamandra) in Western Europe, and are records declining locally?',
+      'Where are the GBIF occurrence-record hotspots for fire salamanders (Salamandra salamandra) in Western Europe, and do records suggest any local temporal gaps?',
   },
   {
     label: 'Sea turtle nesting',
     question:
-      'What does GBIF tell us about sea turtle nesting occurrences along the Mediterranean coast, and which countries report the most records?',
+      'What do GBIF occurrence records show about sea turtle nesting occurrences along the Mediterranean coast, and which countries report the most records?',
   },
   {
     label: 'Chytrid risk zones',
@@ -116,17 +116,17 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Bee decline',
     question:
-      'Can GBIF occurrence records document long-term declines in bumblebee (Bombus) species across Europe since 1990?',
+      'Can GBIF occurrence records support an exploratory assessment of long-term change in bumblebee (Bombus) records across Europe since 1990?',
   },
   {
     label: 'Butterfly range shifts',
     question:
-      'Have common European butterflies (e.g., Papilio machaon, Vanessa cardui) shifted their ranges northward since 2000 according to GBIF?',
+      'Have common European butterflies (e.g., Papilio machaon, Vanessa cardui) shifted their recorded ranges northward since 2000 according to GBIF occurrence records?',
   },
   {
     label: 'Pollinator richness',
     question:
-      'How does wild pollinator (bees, hoverflies, butterflies) species richness vary across agricultural landscapes in France according to GBIF?',
+      'How does wild pollinator (bees, hoverflies, butterflies) species richness vary across agricultural landscapes in France according to GBIF occurrence records?',
   },
   {
     label: 'Dragonfly climate',
@@ -136,14 +136,14 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Firefly observations',
     question:
-      'What is the distribution of common fireflies (Lampyris noctiluca) on GBIF in Europe, and how many records are citizen-science derived?',
+      'What is the distribution of common firefly (Lampyris noctiluca) occurrence records on GBIF in Europe, and how many records are citizen-science derived?',
   },
 
   // ---- Marine & freshwater ----
   {
     label: 'Coral reef fish across the Indo-Pacific',
     question:
-      'What does GBIF tell us about the geographic distribution and habitat associations of coral reef fish in the Indo-Pacific?',
+      'What do GBIF occurrence records show about the geographic distribution and habitat associations of coral reef fish in the Indo-Pacific?',
   },
   {
     label: 'Whale migration',
@@ -158,7 +158,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Freshwater mussels',
     question:
-      'What is the distribution of freshwater mussels (Unionidae) on GBIF in North America, and are records declining since 2000?',
+      'What is the distribution of freshwater mussel (Unionidae) occurrence records on GBIF in North America, and do records show temporal gaps since 2000?',
   },
   {
     label: 'Seabird hotspots',
@@ -175,7 +175,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Invasive plants',
     question:
-      'Can GBIF document the invasion spread of Japanese knotweed (Reynoutria japonica) across Europe since 2000?',
+      'Can GBIF occurrence records document the recorded spread of Japanese knotweed (Reynoutria japonica) across Europe since 2000?',
   },
   {
     label: 'Orchid hotspots',
@@ -185,7 +185,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Porcini fruiting-season trends',
     question:
-      'What does GBIF tell us about fruiting-season trends in common porcini mushrooms (Boletus edulis) across Europe?',
+      'What do GBIF occurrence records show about fruiting-season timing in common porcini mushrooms (Boletus edulis) across Europe?',
   },
   {
     label: 'Urban flora',
@@ -197,7 +197,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Amazon biodiversity',
     question:
-      'What is the distribution and richness of mammals, birds, and amphibians on GBIF across the Amazon basin since 2010?',
+      'What do GBIF occurrence records show about distribution and richness of mammals, birds, and amphibians across the Amazon basin since 2010?',
   },
   {
     label: 'African savanna',
@@ -207,12 +207,12 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Coral triangle',
     question:
-      'What does GBIF tell us about reef-fish and coral species richness across the Coral Triangle region?',
+      'What do GBIF occurrence records show about reef-fish and coral species richness across the Coral Triangle region?',
   },
   {
     label: 'Boreal tree northward shifts',
     question:
-      'Can GBIF records detect northward shifts of boreal tree species in Canada and Russia over the past three decades?',
+      'Can GBIF occurrence records support an exploratory assessment of northward shifts in boreal tree species across Canada and Russia over the past three decades?',
   },
   {
     label: 'Island biogeography',
@@ -229,7 +229,7 @@ export const DEMO_PROMPTS: DemoPrompt[] = [
   {
     label: 'Deforestation signals',
     question:
-      'Does the GBIF record density for forest-dependent birds decline in newly deforested regions of Brazil since 2010?',
+      'Do GBIF occurrence records for forest-dependent birds show temporal gaps in newly deforested regions of Brazil since 2010?',
   },
   {
     label: 'Citizen science trends',

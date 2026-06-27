@@ -38,7 +38,7 @@ function App() {
             </span>
             <span className="min-w-0">
               <strong className="block truncate text-sm font-semibold">GBIF Workbench</strong>
-              <span className="block truncate text-xs text-muted-foreground">Scope and triage before you download</span>
+              <span className="block truncate text-xs text-muted-foreground">Occurrence-data fitness-for-use</span>
             </span>
           </a>
           <nav className="hidden items-center gap-1 text-sm text-muted-foreground md:flex" aria-label="Primary navigation">
@@ -60,10 +60,10 @@ function App() {
               onClick={state.analyzeNow}
               disabled={state.isBusy || !state.question.trim()}
               size="sm"
-              title={state.question.trim() ? 'Run live GBIF analysis on this question' : 'Type a research question to enable'}
+              title={state.question.trim() ? 'Assess this question with live GBIF occurrence data' : 'Type a research question to enable'}
             >
               {state.isBusy ? <Loader2 className="animate-spin" /> : <Play />}
-              {state.isBusy ? 'Analyzing…' : 'Analyze study'}
+              {state.isBusy ? 'Assessing…' : 'Assess study'}
             </Button>
             <Button
               type="button"
@@ -108,10 +108,10 @@ function App() {
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,420px)]">
             <div className="space-y-2">
               <h1 className="max-w-4xl text-2xl font-semibold tracking-normal text-foreground md:text-3xl">
-                Is GBIF the right data for your research? Find out in seconds.
+                Check whether GBIF-mediated occurrence records fit your study.
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
-                Get a fitness-for-use verdict on your data, the filters that match your scope, bias and limitation checks, and reproducible R / Python / SQL, without committing to a download.
+                Get a fitness-for-use assessment for the scoped occurrence records, matching filters, bias and limitation checks, and reproducible R / Python / SQL before committing to a download.
               </p>
             </div>
             <StatusCard status={state.status} preview={state.preview} topRisk={state.topRisk} />
@@ -169,10 +169,10 @@ function App() {
           >
             <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto pr-1 pb-4 2xl:grid-cols-[minmax(0,1.05fr)_minmax(430px,0.95fr)]" data-pane-scroll>
             <ResultOverview preview={state.preview} triage={state.triage} workflow={state.workflow} />
-            <Suspense fallback={<SectionFallback label="live data preview" />}>
+            <Suspense fallback={<SectionFallback label="occurrence-search preview" />}>
               <PreviewSection preview={state.preview} />
             </Suspense>
-            <Suspense fallback={<SectionFallback label="support verdict and exports" />}>
+            <Suspense fallback={<SectionFallback label="fitness-for-use assessment and exports" />}>
               <TriageSection
                 triage={state.triage}
                 preview={state.preview}
@@ -195,7 +195,7 @@ function App() {
         </section>
       </main>
       <footer className="shrink-0 border-t bg-background/95 px-4 py-3 text-center text-xs leading-5 text-muted-foreground lg:px-6">
-        GBIF Workbench is a research tool for triaging GBIF data before you download it. It is independent — not affiliated with GBIF.org — but reads from the same public API you would.
+        GBIF Workbench is an independent research tool for assessing GBIF-mediated occurrence data before a DOI-backed download. It is not affiliated with GBIF.org.
       </footer>
     </div>
   )

@@ -22,7 +22,7 @@ describe('createHistoryPayload', () => {
 
     expect(payload.version).toBe(1)
     expect(payload.status).toBe('workflow_ready')
-    expect(payload.question).toBe('Can GBIF support a tiger distribution map in Bangladesh?')
+    expect(payload.question).toBe('Can GBIF occurrence records support a tiger distribution map in Bangladesh?')
     expect(payload.intent.taxonText).toBe('Panthera tigris')
     expect(payload.taxon.canonicalName).toBe('Panthera tigris')
     expect(payload.query.gbifSearchUrl).toContain('gbif.org')
@@ -49,7 +49,7 @@ describe('createHistorySummary', () => {
     const summary = createHistorySummary(createHistoryPayload(createSnapshot()))
 
     expect(summary).toMatchObject({
-      question: 'Can GBIF support a tiger distribution map in Bangladesh?',
+      question: 'Can GBIF occurrence records support a tiger distribution map in Bangladesh?',
       taxonName: 'Panthera tigris',
       regionText: 'Bangladesh',
       countries: ['BD'],
@@ -62,10 +62,10 @@ describe('createHistorySummary', () => {
 
 function createSnapshot() {
   return {
-    question: 'Can GBIF support a tiger distribution map in Bangladesh?',
+    question: 'Can GBIF occurrence records support a tiger distribution map in Bangladesh?',
     preferredLanguage: 'Both',
     intent: {
-      question: 'Can GBIF support a tiger distribution map in Bangladesh?',
+      question: 'Can GBIF occurrence records support a tiger distribution map in Bangladesh?',
       taxonText: 'Panthera tigris',
       taxonQuery: 'Panthera tigris',
       taxonomicRank: 'species',

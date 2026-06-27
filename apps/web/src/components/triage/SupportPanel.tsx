@@ -32,7 +32,7 @@ export function SupportPanel({ triage }: { triage: TriageResult }) {
     <section className="space-y-4">
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Can GBIF support this study?</span>
+          <span className="text-xs font-medium text-muted-foreground">Fitness-for-use assessment</span>
           <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
         <h2 className="text-xl font-semibold leading-tight">{triage.support.headline}</h2>
@@ -42,11 +42,11 @@ export function SupportPanel({ triage }: { triage: TriageResult }) {
         <Readiness label="Spatial coverage" value={triage.readiness.spatial} hint="Geographic extent of available records" />
         <Readiness label="Temporal coverage" value={triage.readiness.temporal} hint="How well the time window is sampled" />
         <Readiness label="Taxonomic coverage" value={triage.readiness.taxonomic} hint="Confidence in the GBIF taxon match" />
-        <Readiness label="Data type fit" value={triage.readiness.dataType} hint="Whether GBIF occurrence data fits the analysis" />
+        <Readiness label="Data type fit" value={triage.readiness.dataType} hint="Whether GBIF-mediated occurrence data fits the analysis" />
       </div>
 
       <div className="space-y-3">
-        <SupportGroup title="What GBIF can answer directly" items={triage.support.stronglySupported} tone="good" />
+        <SupportGroup title="What occurrence records can support directly" items={triage.support.stronglySupported} tone="good" />
         <SupportGroup title="Conditionally supported" items={triage.support.conditionallySupported} tone="caution" />
         <SupportGroup title="Exploratory only" items={triage.support.exploratoryOnly} tone="caution" />
         <SupportGroup title="Not supported by occurrence-only data" items={triage.support.notSupportedWithOccurrenceOnly} tone="danger" />

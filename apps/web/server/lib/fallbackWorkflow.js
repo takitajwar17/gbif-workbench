@@ -7,20 +7,20 @@ export function createFallbackWorkflow({ intent, taxon, query, preview, triage, 
   const topCountries = topBuckets(preview?.facets?.countries, 6)
   const topYears = topBuckets(preview?.facets?.years, 8)
   const topDatasets = topDatasetNames(preview?.facets?.datasets, 5)
-  const supportHeadline = triage?.support?.headline || 'GBIF preview completed; review limitations before analysis.'
+  const supportHeadline = triage?.support?.headline || 'Occurrence-search preview completed; review limitations before analysis.'
 
   const methodsText = [
     `The proposed study was interpreted as: ${intent?.question || 'No question text supplied'}.`,
     `GBIF Workbench resolved the taxon as ${scope.taxon}. The query scope was ${scope.region} for ${scope.years}.`,
-    `The live GBIF occurrence preview found ${fmt(total)} matching records, including ${fmt(usableCoordinates)} records with usable coordinates and ${fmt(dated)} records with date information.`,
-    `The generated workflow preserves the GBIF search URL, occurrence API URL, SQL starter query, and download predicate so the preview can be reproduced before requesting a DOI-backed download.`,
+    `The live GBIF occurrence-search preview found ${fmt(total)} matching records, including ${fmt(usableCoordinates)} records with usable coordinates and ${fmt(dated)} records with date information.`,
+    `The generated workflow preserves the GBIF.org occurrence search URL, occurrence-search API URL, SQL starter query, and download predicate so the preview can be reproduced before requesting a DOI-backed download.`,
     'Before publication use, inspect coordinate uncertainty, issue flags, dataset sources, basis of record, and temporal coverage.',
   ].join('\n\n')
 
   const limitationsText = [
     'This deterministic export was generated because the optional AI workflow call did not complete in time.',
     reason ? `Backend reason: ${reason}` : '',
-    'The code and text are grounded in the live GBIF query, preview counts, and triage already shown in the app.',
+    'The code and text are grounded in the live GBIF query, occurrence-search preview counts, and assessment already shown in the app.',
     'GBIF occurrence records are presence-oriented and opportunistic unless paired with sampling-event, monitoring, effort, absence, or abundance data.',
     'Do not interpret record counts as abundance. Treat gaps in countries, years, datasets, and coordinate precision as study-design limitations.',
     ...(Array.isArray(preview?.warnings) ? preview.warnings : []),
@@ -33,7 +33,7 @@ export function createFallbackWorkflow({ intent, taxon, query, preview, triage, 
     'For analysis or publication, create a GBIF download through GBIF.org, rgbif::occ_download(), or the GBIF download API, then cite the download DOI returned by GBIF.',
     'Keep the generated predicate JSON and query parameters with your analysis files so reviewers can reproduce the data request.',
     query?.gbifSearchUrl ? `GBIF search URL: ${query.gbifSearchUrl}` : '',
-    query?.apiSearchUrl ? `GBIF API preview URL: ${query.apiSearchUrl}` : '',
+    query?.apiSearchUrl ? `GBIF occurrence-search API URL: ${query.apiSearchUrl}` : '',
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -47,7 +47,7 @@ export function createFallbackWorkflow({ intent, taxon, query, preview, triage, 
     `- Years: ${scope.years}`,
     `- Analysis type: ${intent?.analysisType || 'unknown'}`,
     '',
-    '## Live GBIF preview',
+    '## GBIF occurrence-search preview',
     `- Matching records: ${fmt(total)}`,
     `- Usable coordinates: ${fmt(usableCoordinates)}`,
     `- Records with dates: ${fmt(dated)}`,
@@ -55,7 +55,7 @@ export function createFallbackWorkflow({ intent, taxon, query, preview, triage, 
     topYears.length ? `- Top years: ${topYears.join(', ')}` : '',
     topDatasets.length ? `- Top datasets: ${topDatasets.join('; ')}` : '',
     '',
-    '## Support verdict',
+    '## Fitness-for-use assessment',
     supportHeadline,
     '',
     '## Recommended filters',

@@ -17,7 +17,7 @@ export function ResultOverview({ preview, triage, workflow }: { preview: DataPre
       <CardContent className="space-y-3 p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h2 className="text-base font-semibold">What GBIF Workbench found</h2>
+            <h2 className="text-base font-semibold">Occurrence data fit</h2>
             {topRisk && <Badge variant={riskBadgeVariant(topRisk.level)}>{topRisk.level}</Badge>}
           </div>
           {workflow && (

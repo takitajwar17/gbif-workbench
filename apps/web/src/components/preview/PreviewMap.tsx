@@ -82,7 +82,7 @@ export function PreviewMap({ preview }: { preview: DataPreview }) {
         <div className="flex flex-col items-start gap-1 md:items-end">
           <Badge variant={summary.isConcentrated ? 'warning' : 'success'}>{summary.isConcentrated ? 'Concentrated sample' : 'Broad sample'}</Badge>
           <p className="text-xs text-muted-foreground">
-            {summary.isConcentrated ? 'Most points fall in a small region — fine-scale questions are well supported.' : 'Points span multiple regions — broad-scale questions are well supported.'}
+            {summary.isConcentrated ? 'Most points fall in a small region; broad claims need scope review.' : 'Points span multiple regions; inspect sampling bias before inference.'}
           </p>
         </div>
       </div>

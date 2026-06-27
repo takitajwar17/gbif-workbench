@@ -6,8 +6,8 @@
 //    so no LLM token is spent, and server-side so a hand-crafted POST
 //    can't bypass the UI guard.
 //
-// 2. Off-topic queries: the question is not about biodiversity /
-//    species / GBIF occurrence data. We can't reliably detect this
+// 2. Off-topic queries: the question is not about biodiversity,
+//    species, or GBIF-mediated occurrence data. We can't reliably detect this
 //    without an LLM, so we lean on the LLM itself: the system prompt
 //    instructs it to set confidence to 0 and surface a sentinel
 //    ambiguity when the question is unrelated. The result is mapped
@@ -69,7 +69,7 @@ export function validateResearchQuestion(raw: string): QueryValidation {
       code: 'prompt_injection',
       message:
         'This question looks like an attempt to override GBIF Workbench instructions. ' +
-        'Please rephrase as a plain biodiversity research question (e.g. where a species occurs, ' +
+        'Please rephrase as a plain biodiversity or GBIF-mediated occurrence-data question (e.g. where a species occurs, ' +
         'how its range is shifting, or how its GBIF records look over time).',
     }
   }
@@ -77,7 +77,7 @@ export function validateResearchQuestion(raw: string): QueryValidation {
 }
 
 // Sentinel ambiguity the LLM is asked to set when it can't interpret
-// the question as a biodiversity / GBIF data request. The frontend
+// the question as a biodiversity or GBIF-mediated occurrence-data request. The frontend
 // detects this and surfaces a friendly rejection.
 export const OFF_TOPIC_SENTINEL = '__off_topic_question__'
 

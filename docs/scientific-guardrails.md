@@ -1,6 +1,27 @@
 # Scientific Guardrails
 
-GBIF Workbench uses cautious research-planning language. It must never certify that a dataset is scientifically valid or ready for publication. The OpenAI assessment prompt requires every count, dataset, country, and temporal-coverage statement to be grounded in the live GBIF preview.
+GBIF Workbench uses cautious research-planning language. It must never certify that a record set is scientifically valid or ready for publication. The OpenAI assessment prompt requires every count, dataset, country, and temporal-coverage statement to be grounded in the live occurrence-search preview.
+
+## Terminology
+
+Use the most specific GBIF ecosystem term that fits the claim:
+
+- GBIF-mediated occurrence data
+- occurrence records
+- occurrence-search preview
+- GBIF occurrence download
+- download predicate
+- derived dataset
+- fitness-for-use assessment
+- sampling-event discovery signal
+
+Avoid generic shortcuts when a narrower term is meant:
+
+- GBIF data
+- preview dataset
+- data-quality score
+- valid dataset
+- proves
 
 ## Required language
 
@@ -32,7 +53,7 @@ GBIF occurrence data can still support exploratory mapping and data availability
 
 ## Citation guardrail
 
-Search API previews are useful for planning, but they do not assign a DOI to the exact data used. Serious data reuse should use a GBIF occurrence download, `rgbif::occ_download()`, or a derived dataset workflow so the final record set is citable and repeatable.
+Occurrence-search previews are useful for planning, but they do not assign a DOI to the exact data used. Serious data reuse should use a GBIF occurrence download, `rgbif::occ_download()`, or a derived dataset workflow so the final record set is citable and repeatable.
 
 ## Model output guardrail
 

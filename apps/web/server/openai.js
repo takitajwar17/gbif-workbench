@@ -20,15 +20,15 @@ const ASSESSMENT_CACHE_MAX_ENTRIES = Number(process.env.OPENAI_ASSESSMENT_CACHE_
 const ASSESSMENT_CACHE_ENABLED = process.env.OPENAI_ASSESSMENT_CACHE !== 'false'
 
 // Per-attempt timeout + retry count, separately configured for the
-// intent, triage, and workflow calls so each fits the Vercel Hobby 60s
+// intent, assessment, and workflow calls so each fits the Vercel Hobby 60s
 // ceiling on cold path even with retries/fallbacks.
 //
 //   /api/study-plan (intent): keep two attempts because a valid intent
 //     is required to query GBIF correctly.
 //
-//   /api/study-plan (triage): one fast attempt. If it times out or the
+//   /api/study-plan (assessment): one fast attempt. If it times out or the
 //     AI service is transiently unavailable, the route returns a
-//     deterministic preview-based triage instead of failing the whole
+//     deterministic preview-based assessment instead of failing the whole
 //     analysis.
 //
 //   /api/workflow (workflow): one bounded attempt by default. If the
@@ -68,7 +68,7 @@ export async function interpretStudyIntent({ question, overrides }) {
     effort: process.env.OPENAI_REASONING_EFFORT_INTENT || 'low',
     maxOutputTokens: 5000,
     // The intent call is required to query GBIF correctly, so keep a
-    // real retry budget even though triage itself now degrades to a
+    // real retry budget even though assessment itself now degrades to a
     // deterministic fallback.
     maxAttempts: DEFAULT_INTENT_MAX_ATTEMPTS,
     attemptTimeoutMs: DEFAULT_INTENT_ATTEMPT_TIMEOUT_MS,
@@ -95,8 +95,8 @@ export async function interpretStudyIntent({ question, overrides }) {
   })
 }
 
-// Triage assessment: returns the qualitative "What GBIF Workbench found"
-// card. This is the small, fast call that the first endpoint emits so
+// Assessment call: returns the qualitative fitness-for-use card.
+// This is the small, fast call that the first endpoint emits so
 // the user sees readiness + risks + headline immediately.
 export async function assessTriage({ intent, taxon, query, preview }) {
   const model = process.env.OPENAI_MODEL_ASSESSMENT || process.env.OPENAI_MODEL || DEFAULT_MODEL
@@ -125,9 +125,9 @@ export async function assessTriage({ intent, taxon, query, preview }) {
     instructions: triageInstructions,
     effort,
     maxOutputTokens: 4500,
-    // Triage: one fast attempt by default. If this misses the timeout,
+    // Assessment: one fast attempt by default. If this misses the timeout,
     // /api/study-plan falls back to deterministic, preview-grounded
-    // triage instead of failing the whole study.
+    // assessment instead of failing the whole study.
     maxAttempts: DEFAULT_TRIAGE_MAX_ATTEMPTS,
     attemptTimeoutMs: DEFAULT_TRIAGE_ATTEMPT_TIMEOUT_MS,
     retryBackoffMs: DEFAULT_RETRY_BACKOFF_MS,
@@ -144,7 +144,7 @@ export async function assessTriage({ intent, taxon, query, preview }) {
                 gbifQuery: query,
                 gbifPreview: preview,
                 constraints: [
-                  'Use only the provided GBIF preview facts for record counts, country distribution, datasets, and temporal coverage.',
+                  'Use only the provided occurrence-search preview facts for record counts, country distribution, datasets, and temporal coverage.',
                   'Do not invent occurrence counts, datasets, citations, countries, DOI values, or statistical conclusions.',
                   'Classify whether GBIF-mediated occurrence data can support the proposed claim, and flag where additional effort, abundance, absence, environmental, or monitoring data are needed.',
                   'Set readiness.spatial / temporal / taxonomic / dataType to 0 — the Workbench computes them deterministically from the preview.',
@@ -218,7 +218,7 @@ export async function assessWorkflow({ intent, taxon, query, preview, triage }) 
                   'R code should use rgbif, dplyr, and readr; include occ_download() for serious reuse; include optional CoordinateCleaner guidance and authenticated download guidance without real credentials.',
                   'Python code should use pygbif or requests plus pandas for preview/download request construction without real credentials.',
                   'cleaningR should include coordinate/date checks, duplicate handling, issue summaries, coordinate uncertainty handling, and placeholders for taxon-specific review.',
-                  'markdownReport must include: Title, User research question, Interpreted study scope, Taxon resolution, Region resolution, Data needed for intended claim, GBIF data availability preview, Data-type triage, Bias and limitation assessment, Supported and unsupported claims, Recommended filters, Recommended workflow, Generated code links, Citation instructions, Limitations and assumptions, What to do next.',
+                  'markdownReport must include: Title, User research question, Interpreted study scope, Taxon resolution, Region resolution, Data needed for intended claim, GBIF occurrence-search preview, Data-type fit assessment, Bias and limitation assessment, Supported and unsupported claims, Recommended filters, Recommended workflow, Generated code links, Citation instructions, Limitations and assumptions, What to do next.',
                   'Do not include fake sample records or demo results.',
                 ],
               },
@@ -497,12 +497,12 @@ function throwOpenAIError(error, status) {
 }
 
 // LRU+TTL caches for the two assessment calls. The assessment prompt
-// is grounded in the live GBIF preview, so the cache key folds in the
+// is grounded in the live occurrence-search preview, so the cache key folds in the
 // inputs that actually change the answer: the model and reasoning
 // effort, the resolved taxonKey, the query filter set, the analysis
 // type, the preview counts/facets, and the preview's fetchedAt minute.
 // Workflow cache keys also include a digest of the triage object because
-// the workflow prompt uses that verdict as source material for reports.
+// the workflow prompt uses that assessment as source material for reports.
 // Re-running the same scope within the TTL returns the prior
 // structured output without calling OpenAI again.
 //

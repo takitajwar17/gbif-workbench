@@ -102,7 +102,7 @@ export function createJupyterNotebook(workflow: WorkflowPackage) {
       cells: [
         markdownCell(workflow.markdownReport),
         markdownCell(analysisSummary),
-        markdownCell('## GBIF preview and download workflow'),
+        markdownCell('## GBIF occurrence-search preview and download workflow'),
         codeCell(workflow.pythonCode),
         markdownCell('## GBIF SQL occurrence-cube query'),
         codeCell(workflow.sqlCode),
@@ -172,7 +172,7 @@ export function createAnalysisSummary(workflow: WorkflowPackage) {
     '## Run metadata',
     bullet('Generated at', stringValue(plan.generatedAt, 'Not recorded')),
     bullet('Intent model', stringValue(models.intent, 'Not recorded')),
-    bullet('Triage model', stringValue(models.triage, 'Not recorded')),
+    bullet('Assessment model', stringValue(models.triage, 'Not recorded')),
     bullet('Workflow model', stringValue(models.workflow, 'Not recorded')),
     '',
     '## Interpreted scope',
@@ -206,8 +206,8 @@ export function createAnalysisSummary(workflow: WorkflowPackage) {
     '',
     '## Query and reproduction',
     bullet('GBIF.org search URL', stringValue(query.gbifSearchUrl, 'Not available')),
-    bullet('GBIF API preview URL', stringValue(query.apiSearchUrl, 'Not available')),
-    bullet('Preview query URL', stringValue(preview.queryUrl, 'Not available')),
+    bullet('GBIF occurrence-search API URL', stringValue(query.apiSearchUrl, 'Not available')),
+    bullet('Occurrence-search preview URL', stringValue(preview.queryUrl, 'Not available')),
     '### API parameters',
     jsonBlock(query.apiParams),
     '### Download predicate',
@@ -215,7 +215,7 @@ export function createAnalysisSummary(workflow: WorkflowPackage) {
     '### SQL cube query',
     codeBlock(stringValue(query.sqlCubeQuery, 'Not available'), 'sql'),
     '',
-    '## Availability counts',
+    '## Occurrence-search preview counts',
     ...countBullets(objectValue(preview.counts)),
     '',
     '## Readiness',
@@ -224,9 +224,9 @@ export function createAnalysisSummary(workflow: WorkflowPackage) {
     bullet('Taxonomic', formatNumberField(readiness.taxonomic)),
     bullet('Data type', formatNumberField(readiness.dataType)),
     '',
-    '## Support classification',
+    '## Fitness-for-use assessment',
     bullet('Headline', stringValue(support.headline, 'Not supplied')),
-    listSection('What GBIF can answer directly', arrayValue(support.stronglySupported), formatStringItem, 'None listed'),
+    listSection('What occurrence records can support directly', arrayValue(support.stronglySupported), formatStringItem, 'None listed'),
     listSection('Conditionally supported', arrayValue(support.conditionallySupported), formatStringItem, 'None listed'),
     listSection('Exploratory only', arrayValue(support.exploratoryOnly), formatStringItem, 'None listed'),
     listSection('Not supported with occurrence-only data', arrayValue(support.notSupportedWithOccurrenceOnly), formatStringItem, 'None listed'),
@@ -241,7 +241,7 @@ export function createAnalysisSummary(workflow: WorkflowPackage) {
     '',
     listSection('Next steps', arrayValue(triage.nextSteps), formatStringItem, 'None listed'),
     '',
-    '## Preview facets',
+    '## Occurrence-search preview facets',
     bucketSection('Years', arrayValue(facets.years), formatBucket),
     bucketSection('Countries', arrayValue(facets.countries), formatBucket),
     bucketSection('Basis of record', arrayValue(facets.basisOfRecord), formatBucket),
@@ -255,7 +255,7 @@ export function createAnalysisSummary(workflow: WorkflowPackage) {
     bullet('Median uncertainty meters', formatNumberField(coordinateUncertainty.medianMeters)),
     bullet('Share over 10 km', formatPercentField(coordinateUncertainty.over10kmShare)),
     '',
-    '## Sampling-event signal',
+    '## Sampling-event discovery signal',
     bullet('Countries checked', formatArray(samplingEvents.countriesChecked, 'Global')),
     bullet('Sampling-event dataset hits', formatNumberField(samplingEvents.datasetHits)),
     bullet('Note', stringValue(samplingEvents.note, 'Not supplied')),
@@ -265,7 +265,7 @@ export function createAnalysisSummary(workflow: WorkflowPackage) {
     listSection('Preview warnings', arrayValue(preview.warnings), formatStringItem, 'None'),
     '',
     '## Raw files',
-    '- `complete_analysis.json` contains the raw intent, taxon resolution, GBIF query, preview, triage, model metadata, and run timestamp.',
+    '- `complete_analysis.json` contains the raw intent, taxon resolution, GBIF query, preview, assessment, model metadata, and run timestamp.',
     '- `data_availability_summary.json` is kept as a backwards-compatible copy of the same raw analysis state.',
     '- Workflow code, SQL, predicate JSON, cleaning scripts, and manuscript text are included as separate export files.',
   ].filter((line) => line !== '').join('\n')
@@ -294,12 +294,12 @@ function exportReadme() {
 
 This package was generated from a live GBIF Workbench run.
 
-Use the workflow files to reproduce the scoped GBIF query, request a DOI-backed GBIF download, clean records, and cite the resulting data.
+Use the workflow files to reproduce the scoped GBIF occurrence query, request a DOI-backed GBIF occurrence download, clean records, and cite the resulting data.
 
 Recommended order:
 
 1. Read \`study_plan.md\` or \`report.html\` for the human-readable interpretation, risks, and methods text.
-2. Inspect \`analysis_summary.md\` for the deterministic appendix grounded in the live GBIF preview.
+2. Inspect \`analysis_summary.md\` for the deterministic appendix grounded in the live occurrence-search preview.
 3. Pick \`gbif_download.R\` *or* \`gbif_download.py\` and run it. It submits a DOI-backed GBIF download via \`occ_download()\` (R) or the download API (Python), polls for completion, and writes \`gbif_occurrences.csv\` plus a \`gbif_doi.txt\` containing the returned DOI.
 4. Run \`cleaning_pipeline.R\` against \`gbif_occurrences.csv\`.
 5. Paste the DOI from \`gbif_doi.txt\` into \`citation_instructions.md\` and your manuscript methods section.
@@ -307,7 +307,7 @@ Recommended order:
 Files:
 
 - \`analysis_summary.md\` — human-readable appendix generated from the raw analysis state.
-- \`complete_analysis.json\` — full restorable snapshot (intent, taxon, query, preview, triage, workflow, models, timestamp).
+- \`complete_analysis.json\` — full restorable snapshot (intent, taxon, query, preview, assessment, workflow, models, timestamp).
 - \`data_availability_summary.json\` — backwards-compatible copy of the same snapshot.
 - \`gbif_query_params.json\` — exact GBIF occurrence/search parameters used for the preview.
 - \`gbif_download_request.json\` — exact predicate body for the GBIF download API.

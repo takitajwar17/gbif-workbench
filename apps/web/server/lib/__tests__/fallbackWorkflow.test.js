@@ -5,7 +5,7 @@ import { finalizeWorkflow } from '../../workflow.js'
 function makePayload() {
   return {
     intent: {
-      question: 'Can GBIF support mapping kingfisher records in Bangladesh since 2000?',
+      question: 'Can GBIF occurrence records support mapping kingfisher records in Bangladesh since 2000?',
       taxonText: 'kingfishers',
       analysisType: 'distribution_mapping',
       regionText: 'Bangladesh',
@@ -89,7 +89,7 @@ describe('createFallbackWorkflow', () => {
     expect(workflow.cleaningR).toContain('requireNamespace("CoordinateCleaner"')
     expect(workflow.cleaningR).toContain('CoordinateCleaner::clean_coordinates')
     expect(workflow.cleaningR).toContain('CoordinateCleaner not installed')
-    expect(workflow.methodsText).toContain('live GBIF occurrence preview')
+    expect(workflow.methodsText).toContain('live GBIF occurrence-search preview')
     expect(workflow.limitationsText).toContain('deterministic export')
     expect(workflow.citationInstructions).toContain('GBIF download')
     expect(workflow.markdownReport).toContain('GBIF Workbench Report')

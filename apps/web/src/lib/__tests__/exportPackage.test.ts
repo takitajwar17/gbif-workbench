@@ -30,7 +30,7 @@ const workflow: WorkflowPackage = {
       workflow: 'deterministic-workflow-fallback',
     },
     intent: {
-      question: 'Can GBIF support mapping jaguars in Brazil since 2000?',
+      question: 'Can GBIF occurrence records support mapping jaguars in Brazil since 2000?',
       taxonText: 'Jaguar',
       taxonQuery: 'Panthera onca',
       taxonomicRank: 'SPECIES',

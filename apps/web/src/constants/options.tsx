@@ -9,7 +9,7 @@ export const ANALYSIS_OPTIONS: { value: AnalysisType; label: string }[] = [
   { value: 'range_shift_exploration', label: 'Range-shift exploration' },
   { value: 'species_distribution_modelling', label: 'Species distribution modelling' },
   { value: 'distribution_mapping', label: 'Distribution mapping' },
-  { value: 'temporal_trend_or_abundance', label: 'Trend / abundance triage' },
+  { value: 'temporal_trend_or_abundance', label: 'Trend / abundance assessment' },
   { value: 'invasive_monitoring_preview', label: 'Invasive monitoring preview' },
 ]
 

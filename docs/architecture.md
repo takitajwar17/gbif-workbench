@@ -4,7 +4,7 @@ GBIF Workbench is a single-page React 19 + Vite 8 application backed by
 five Vercel Node.js serverless endpoints. Authentication uses Clerk;
 history persistence uses a Vercel Marketplace Neon Postgres database;
 AI text generation uses OpenAI structured outputs through the Responses
-API; GBIF data is fetched live from the public GBIF API — no caching
+API; GBIF-mediated occurrence data is previewed live through the public GBIF API — no caching
 of occurrence payloads beyond a short server-side TTL. Transient GBIF
 network failures, request timeouts, rate limits, and 5xx responses are
 retried with bounded exponential backoff.
@@ -23,7 +23,7 @@ Browser (React 19 + Vite + shadcn/ui + Tailwind 4)
 Vercel Node.js serverless functions
    ├── /api/health              (public; service status)
    ├── /api/parse-intent        (auth; OpenAI intent parse, optional)
-   ├── /api/study-plan          (auth; GBIF preview + triage)
+   ├── /api/study-plan          (auth; occurrence preview + assessment)
    ├── /api/workflow            (auth; workflow package + ZIP-ready files)
    └── /api/history             (auth; Neon-backed run history)
    │
@@ -32,7 +32,7 @@ Vercel Node.js serverless functions
    ├── server/workflow.js       (finalizeWorkflow, normalizeTriage, body validation)
    ├── server/historyStore.js   (Neon-backed CRUD)
    ├── server/auth.js           (Clerk session verification)
-   ├── server/lib/fallbackTriage.js   (deterministic triage from live preview)
+   ├── server/lib/fallbackTriage.js   (deterministic assessment from live preview)
    ├── server/lib/fallbackWorkflow.js (deterministic export package)
    ├── server/lib/fallbackPolicy.js   (transient-AI-error classifier)
    ├── server/lib/codeValidator.js    (R + Python parse check on emitted code)
@@ -65,20 +65,20 @@ Browser-side
      filters) and the GBIF.org human-facing search URL.
    - `previewGbifData` calls `https://api.gbif.org/v1/occurrence/search`
      with the constructed parameters and a sample of records to
-     retrieve counts, year and country facets, basis-of-record facets,
+     retrieve occurrence counts, year and country facets, basis-of-record facets,
      dataset facets, issue-flag facets, taxonomic breakdown, and
      coordinate uncertainty summary.
    GBIF API calls use a short-lived LRU+TTL cache and retry transient
    failures before surfacing errors. Then `assessTriage` (or
    `createFallbackTriage` on transient AI
-   failure) generates qualitative support and risk judgments grounded
-   in the live preview. `normalizeTriage` overwrites the readiness
+   failure) generates qualitative fitness-for-use and risk judgments grounded
+   in the occurrence-search preview. `normalizeTriage` overwrites the readiness
    dimensions with deterministic, repeatable values computed from the
    preview — the LLM is not allowed to fabricate readiness numbers.
-   If history storage is configured, this preview-ready verdict is
+   If history storage is configured, this preview-ready assessment is
    saved to the signed-in account immediately.
-4. The browser renders scope interpretation, GBIF preview cards,
-   triage support and risk panels. The user can edit the scope and
+4. The browser renders scope interpretation, occurrence-search preview cards,
+   fitness-for-use and risk panels. The user can edit the scope and
    re-run.
 5. **POST `/api/workflow`** — Generates the long-form reproducible
    code (R, Python, cleaning pipeline, SQL/cube starter, predicate
@@ -104,7 +104,7 @@ the same shape of output.
 | AI call | Deterministic replacement | When the replacement runs |
 | --- | --- | --- |
 | Intent parse (`/api/parse-intent`) | (none — required for GBIF query) | AI failure surfaces as a 500 |
-| Triage (`/api/study-plan`) | `server/lib/fallbackTriage.js` from live GBIF preview | `shouldUseDeterministicFallback` matches |
+| Fitness-for-use assessment (`/api/study-plan`) | `server/lib/fallbackTriage.js` from live occurrence-search preview | `shouldUseDeterministicFallback` matches |
 | Workflow (`/api/workflow`) | `server/lib/fallbackWorkflow.js` (hand-written R/Python/cleaning/Markdown) | `shouldUseDeterministicFallback` matches, or static parse check fails |
 
 The transient-failure classifier (`server/lib/fallbackPolicy.js`)
@@ -132,8 +132,8 @@ The same validator is exposed as `npm run check:runnable` and
 ## Why split `/api/study-plan` from `/api/workflow`?
 
 Vercel Hobby serverless functions have a 60-second wall-clock budget.
-The old combined endpoint had to fit intent parse + GBIF preview +
-triage + workflow generation + ZIP preparation in that window, which
+The old combined endpoint had to fit intent parse + occurrence-search preview +
+assessment + workflow generation + ZIP preparation in that window, which
 forced aggressive AI timeouts and made deterministic fallback common.
 Splitting into two endpoints gives each call its own 60s budget and
 lets the user see the result card immediately while the workflow
@@ -145,16 +145,16 @@ transient-failure handling.
 - **GBIF Backbone** (`https://api.gbif.org/v1/species/match`) — taxon
   resolution with confidence and alternatives.
 - **GBIF occurrence search** (`https://api.gbif.org/v1/occurrence/search`)
-  — preview counts, facets, sample points.
+  — occurrence-search preview counts, facets, sample points.
 - **OpenAI Responses API** (`https://api.openai.com/v1/responses`) —
-  structured outputs for intent, triage, and workflow text.
+  structured outputs for intent, fitness-for-use assessment, and workflow text.
 - **Clerk** — session token verification on every authenticated
   endpoint.
 - **Vercel Marketplace Neon Postgres** — analysis-history persistence.
 
 ## What GBIF Workbench does not do
 
-- Does not download GBIF data on the user's behalf — it produces
+- Does not download occurrence records on the user's behalf — it produces
   download code that the user runs locally with their own GBIF
   credentials, so the resulting download has a citable DOI.
 - Does not assign a universal data-quality score — readiness is
@@ -164,6 +164,6 @@ transient-failure handling.
 - Does not train on user data, does not retain prompts server-side
   beyond the optional history feature, and does not require a
   user-supplied API key to operate.
-- Does not execute LLM-emitted R or Python. Submission use cases
+- Does not execute LLM-emitted R or Python. Research use cases
   depend on the user's local toolchain with their GBIF credentials;
   the server only parse-checks.

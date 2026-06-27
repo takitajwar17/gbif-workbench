@@ -12,12 +12,12 @@ export function MethodSection() {
             <h2 className="text-lg font-semibold">How this fits into your research</h2>
           </div>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
-            GBIF Workbench summarizes what GBIF can tell you about a question — counts, facets, sample coverage, common data-use risks — so you can decide whether a full download is worth it. It does <strong>not</strong> certify data quality or replace your own methods review. Final suitability depends on the taxon, scale, time window, and any extra datasets you bring in.
+            GBIF Workbench summarizes what GBIF-mediated occurrence records can tell you about a question — counts, facets, sample coverage, common data-use risks — so you can decide whether a DOI-backed occurrence download is worth it. It does <strong>not</strong> certify data quality or replace your own methods review. Final suitability depends on the taxon, scale, time window, and any extra datasets you bring in.
           </p>
         </div>
         <div className="grid gap-2 text-sm">
           <Badge variant="outline" className="justify-start py-1.5">
-            OpenAI-powered scope and triage
+            OpenAI-powered scope and assessment
           </Badge>
           <Badge variant="outline" className="justify-start py-1.5">
             GBIF taxon keys and dataset metadata

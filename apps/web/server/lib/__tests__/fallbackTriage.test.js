@@ -68,7 +68,7 @@ describe('createFallbackTriage', () => {
 
     expect(triage.support.headline).toMatch(/GBIF/)
     expect(triage.risks.length).toBeGreaterThanOrEqual(4)
-    expect(triage.risks[0].title).toMatch(/AI triage unavailable/)
+    expect(triage.risks[0].title).toMatch(/AI assessment unavailable/)
     expect(triage.readiness.spatial).toBeGreaterThan(0)
     expect(triage.recommendedFilters.length).toBeGreaterThan(0)
     expect(triage.nextSteps.length).toBeGreaterThan(0)

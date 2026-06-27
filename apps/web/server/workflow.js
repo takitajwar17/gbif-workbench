@@ -35,7 +35,7 @@ function validateRequestBody(body) {
       ok: false,
       error:
         'This question looks like an attempt to override GBIF Workbench instructions. ' +
-        'Please rephrase as a plain biodiversity research question.',
+        'Please rephrase as a plain biodiversity or GBIF-mediated occurrence-data question.',
     }
   }
   const overrides =
@@ -70,7 +70,7 @@ export const validateStudyPlanBody = validateRequestBody
 // for harmless field reorderings.
 //
 // triage is optional but recommended: when present, the LLM can echo
-// its qualitative judgments (support headline, risks, recommended
+// its qualitative fitness-for-use judgments (support headline, risks, recommended
 // filters) into the markdown/html report instead of inventing its own.
 //
 // Exported so unit tests in `server/lib/__tests__/workflowValidation.test.js`
@@ -187,7 +187,7 @@ export function finalizeWorkflow(workflow, payload) {
 }
 
 export function normalizeTriage(triage, intent, preview) {
-  // readiness is data-driven: same intent + same GBIF preview => same
+  // readiness is data-driven: same intent + same occurrence-search preview => same
   // four integers, every time. We deliberately overwrite whatever the
   // LLM returned here, so the LLM is free to put whatever it likes in
   // the schema field and the user still gets stable, repeatable scores.

@@ -2,7 +2,7 @@
   "name": "gbif-workbench-web",
   "private": true,
   "version": "0.1.0",
-  "description": "Pre-download research triage for GBIF-mediated biodiversity data.",
+  "description": "Pre-download fitness-for-use assessment for GBIF-mediated occurrence data.",
   "license": "MIT",
   "homepage": "https://gbifworkbench.org/",
   "repository": {

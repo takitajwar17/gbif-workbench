@@ -64,14 +64,14 @@ function aiFallbackRisk(reason) {
   return risk({
     category: 'other',
     level: 'MODERATE',
-    title: 'AI triage unavailable; deterministic triage used',
+    title: 'AI assessment unavailable; deterministic assessment used',
     explanation:
-      'The live GBIF preview completed, but the optional AI triage call did not finish inside the response budget.',
-    evidence: reason || 'The AI triage service timed out or returned an incomplete response.',
+      'The live occurrence-search preview completed, but the optional AI assessment call did not finish inside the response budget.',
+    evidence: reason || 'The AI assessment service timed out or returned an incomplete response.',
     whyItMatters:
-      'The result is still grounded in live GBIF counts and facets, but the qualitative explanation is rule-based and intentionally conservative.',
+      'The result is still grounded in live occurrence-search counts and facets, but the qualitative explanation is rule-based and intentionally conservative.',
     recommendedMitigation:
-      'Use the preview, filters, and generated workflow as a starting point, then re-run if you need richer narrative triage.',
+      'Use the preview, filters, and generated workflow as a starting point, then re-run if you need a richer narrative assessment.',
     relatedWorkflowStep: 'Review methods and limitations',
   })
 }
@@ -118,7 +118,7 @@ function dataTypeRisk(intent, preview) {
       'Presence-only occurrence data should not be treated as complete sampling effort or population abundance.',
     recommendedMitigation:
       'Use occurrence data for scope and filtering, then add effort-aware monitoring, environmental, trait, or absence data when the claim requires it.',
-    relatedWorkflowStep: 'Data-type triage',
+    relatedWorkflowStep: 'Data-type fit assessment',
   })
 }
 
@@ -146,7 +146,7 @@ function fallbackSupport({ total, coordinateShare, dateShare, supportLevel, unsu
       conditionallySupported: [],
       exploratoryOnly: [],
       notSupportedWithOccurrenceOnly: unsupportedClaims,
-      insufficientData: ['The live GBIF preview returned zero matching records for the interpreted filters.'],
+      insufficientData: ['The live occurrence-search preview returned zero matching records for the interpreted filters.'],
     }
   }
 
@@ -154,7 +154,7 @@ function fallbackSupport({ total, coordinateShare, dateShare, supportLevel, unsu
     headline: fallbackHeadline(supportLevel),
     stronglySupported:
       supportLevel === 'strong' && unsupportedClaims.length === 0
-        ? ['Occurrence discovery and reproducible GBIF download planning are well supported by the live preview.']
+        ? ['Occurrence discovery and reproducible GBIF occurrence-download planning are suitable to continue into methods review.']
         : [],
     conditionallySupported: conditionalSupportItems(coordinateShare, dateShare),
     exploratoryOnly:
@@ -171,8 +171,8 @@ function fallbackSupport({ total, coordinateShare, dateShare, supportLevel, unsu
 
 function fallbackHeadline(supportLevel) {
   if (supportLevel === 'strong') return 'GBIF looks usable for a cautious, filter-driven workflow.'
-  if (supportLevel === 'mixed') return 'GBIF can support exploratory planning, but key limitations need review.'
-  return 'GBIF support looks weak for this scope without additional data or narrower filters.'
+  if (supportLevel === 'mixed') return 'GBIF-mediated occurrence data can support exploratory planning, but key limitations need review.'
+  return 'Occurrence-data fit looks weak for this scope without additional data or narrower filters.'
 }
 
 // Derive a conservative support category from per-dimension readiness
@@ -181,7 +181,7 @@ function fallbackHeadline(supportLevel) {
 // category wins, because confidence in the analysis is gated by its
 // weakest dimension.
 function deriveSupportLevel({ coordinateShare, dateShare, dataTypeReadiness }) {
-  // dataType < 50 means occurrence-only GBIF data doesn't fit the
+  // dataType < 50 means GBIF-mediated occurrence data doesn't fit the
   // analysis (e.g. trend/abundance). That's a categorical block, not
   // a numeric one.
   if (dataTypeReadiness < 50) return 'weak'

@@ -119,7 +119,7 @@ const ANALYSIS_LABEL_MAP: Record<string, string> = {
   distribution_mapping: 'Distribution mapping',
   species_distribution_modelling: 'Species distribution modelling',
   range_shift_exploration: 'Range-shift exploration',
-  temporal_trend_or_abundance: 'Trend / abundance triage',
+  temporal_trend_or_abundance: 'Trend / abundance assessment',
   invasive_monitoring_preview: 'Invasive monitoring preview',
   unknown: 'Auto-detected',
 }

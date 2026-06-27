@@ -19,10 +19,10 @@ export function StatusCard({ status, preview, topRisk }: { status: Status; previ
                 : status === 'previewing'
                   ? 'Querying GBIF and classifying risks. May take 5–15 seconds the first time GBIF is hit.'
                   : status === 'generating'
-                    ? 'Triage is ready above. The reproducible workflow streams in behind it — usually 5–15 seconds.'
+                    ? 'Assessment is ready above. The reproducible workflow streams in behind it — usually 5–15 seconds.'
                     : status === 'error'
                       ? 'Something went wrong. Try the retry button below the error message.'
-                      : 'Live GBIF previews are generated only after analysis runs.'}
+                      : 'Occurrence-search previews are generated only after assessment runs.'}
           </p>
         </div>
       </CardContent>

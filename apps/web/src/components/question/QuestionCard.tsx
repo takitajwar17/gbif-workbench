@@ -57,7 +57,7 @@ export function QuestionCard({
           ? 'Long questions are fine, but the model focuses best on the first few sentences.'
           : intent
             ? 'Edit any field in the scope below — press Re-run to apply your changes.'
-            : 'Looks good. Click Analyze study to run the Workbench on this question.'
+            : 'Looks good. Click Assess study to run the Workbench on this question.'
 
   const [prompts, setPrompts] = useState(() => pickRandomPrompts(3))
   const reshufflePrompts = useCallback(() => {
@@ -80,7 +80,7 @@ export function QuestionCard({
         <SectionTitle
           icon={<Search />}
           title="Describe your study"
-          description="Write a research question. The Workbench interprets your scope, fetches live GBIF data, and generates code and write-ups — automatically."
+          description="Write a research question. The Workbench interprets your scope, fetches a live occurrence-search preview, and generates code and write-ups."
         />
       </CardHeader>
       <CardContent className="space-y-4">
@@ -114,10 +114,10 @@ export function QuestionCard({
           disabled={isBusy || !canAnalyze}
           className="w-full"
           size="lg"
-          title={canAnalyze ? 'Run live GBIF analysis on this question' : 'Type a research question to enable'}
+          title={canAnalyze ? 'Assess this question with live GBIF occurrence data' : 'Type a research question to enable'}
         >
           {isBusy ? <Loader2 className="animate-spin" /> : <Search />}
-          {isBusy ? 'Analyzing…' : 'Analyze study'}
+          {isBusy ? 'Assessing…' : 'Assess study'}
         </Button>
 
         {hasResults && (

@@ -14,8 +14,8 @@ import { createAnalysisSummary } from '@/lib/exportPackage'
 import type { GbifQuery, TriageResult, WorkflowPackage } from '@/lib/types'
 
 const GROUP_DESCRIPTIONS: Record<WorkflowGroup, string> = {
-  code: 'R and Python scripts you can paste into your own analysis.',
-  query: 'SQL cube query and download predicate ready for the GBIF API.',
+  code: 'R and Python scripts for GBIF occurrence downloads and local analysis.',
+  query: 'SQL cube starter and occurrence download predicate ready for the GBIF API.',
   writeup: 'Methods, citation, and limitations paragraphs for your manuscript.',
   cleaning: 'Standalone R script for coordinate and taxonomy cleanup.',
 }
@@ -105,9 +105,9 @@ export function WorkflowPanel({
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Code2 className="size-4 text-primary" aria-hidden="true" />
-            Generated workflow
+            Generated occurrence workflow
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">R and Python code, GBIF queries, methods text, and a one-click export zip.</p>
+          <p className="mt-1 text-xs text-muted-foreground">R and Python occurrence-download code, GBIF query artifacts, methods text, and a one-click export zip.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <CopyButton content={copyContent} label={copyLabel} />
@@ -118,7 +118,7 @@ export function WorkflowPanel({
           </Button>
           <Button variant="outline" size="sm" asChild>
             <a href={query.apiSearchUrl} target="_blank" rel="noreferrer">
-              API preview <ExternalLink />
+              Occurrence-search URL <ExternalLink />
             </a>
           </Button>
         </div>

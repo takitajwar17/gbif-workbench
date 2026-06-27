@@ -7,7 +7,7 @@
 // four `Readiness` bars shown on the result card.
 //
 // The four dimensions mirror what ecological researchers evaluate when
-// deciding whether GBIF data can answer a study question:
+// deciding whether GBIF-mediated occurrence data can support a study question:
 //   - spatial:   usable coordinate coverage, precision, and country fit
 //   - temporal:  date availability, year-window overlap, continuity,
 //                recency (for applications that need recent data)

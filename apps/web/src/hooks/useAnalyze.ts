@@ -22,7 +22,7 @@ import type {
 const STALE_WORKFLOW_MESSAGE =
   'Scope changed after this run. Re-run the analysis to regenerate exports for the edited scope.'
 const MISSING_WORKFLOW_HISTORY_MESSAGE =
-  'This saved analysis includes the verdict but not workflow exports. Re-run the analysis to generate exports.'
+  'This saved analysis includes the assessment but not workflow exports. Re-run the analysis to generate exports.'
 
 // Single source of truth for the workspace's `useState` graph + the imperative
 // actions that mutate it. The orchestrator (App.tsx) only renders JSX and
@@ -33,7 +33,7 @@ const MISSING_WORKFLOW_HISTORY_MESSAGE =
 //   type in QuestionCard → changeQuestion()  (updates the textarea state only;
 //                                              wipes stale results so the user
 //                                              doesn't see data for the wrong question)
-//   click Analyze study  → analyzeNow()  (interpretNow if no intent yet,
+//   click Assess study   → analyzeNow()  (interpretNow if no intent yet,
 //                                          else runStudy with the existing intent)
 //   edit a scope field   → updateIntentField()  (merge into intent locally;
 //                                                sets scopeDirty so the UI can
@@ -42,8 +42,8 @@ const MISSING_WORKFLOW_HISTORY_MESSAGE =
 //   click demo prompt    → selectDemoPrompt()  (set question text only — no API call)
 //
 // Two-endpoint flow (added with the /api/study-plan ↔ /api/workflow split):
-//   runStudy fires /api/study-plan (intent + taxon + query + preview + triage).
-//   When that resolves, the user sees the result card immediately. A separate
+//   runStudy fires /api/study-plan (intent + taxon + query + preview + assessment).
+//   When that resolves, the user sees the assessment immediately. A separate
 //   background call to /api/workflow then fetches the long-form code +
 //   reports. We surface 'generating' status so the Export stepper badge
 //   spins while that call is in flight. If /api/workflow fails (e.g.
@@ -51,7 +51,7 @@ const MISSING_WORKFLOW_HISTORY_MESSAGE =
 //   user gets a friendly error in the export panel — they can re-run.
 //
 // Scope field edits are LOCAL: they merge into intent but do NOT trigger a
-// new study run. The user must press Re-run (or Analyze study) to apply.
+// new study run. The user must press Re-run (or Assess study) to apply.
 // This keeps multi-field edits cheap — the user can refine five fields in a
 // row without burning five LLM calls.
 //
@@ -157,7 +157,7 @@ export function useAnalyze() {
       if (runId !== runIdRef.current) return // stale response, ignore
       // Render the result card immediately. The /api/workflow call runs
       // in the background — the user does not have to wait for the long
-      // LLM call to read the result card.
+      // LLM call to read the assessment.
       setStatus('generating')
       startTransition(() => {
         setIntent(result.intent)
@@ -282,16 +282,16 @@ export function useAnalyze() {
       const result = await requestStudyIntent({ question: trimmed, overrides: { preferredLanguage } }, auth.getAuthToken)
       if (runId !== runIdRef.current) return
       // LLM-side off-topic check: if the model couldn't make sense of the
-      // question as a biodiversity / GBIF data request, it sets a sentinel
+      // question as a biodiversity or GBIF-mediated occurrence-data request, it sets a sentinel
       // ambiguity. Surface that as a friendly rejection instead of feeding
       // a junk intent into the study pipeline.
       if (detectOffTopicSentinel(result.intent.ambiguities)) {
         setIntent(null)
         setStatus('error')
         setError(
-          'This question does not look like a GBIF / biodiversity data study. ' +
+          'This question does not look like a GBIF-mediated occurrence-data study. ' +
             'Try asking where a species occurs, how its range is shifting, what its ' +
-            'GBIF records look like over time, or how abundant it is in a region.',
+            'GBIF occurrence records look like over time, or what extra data would be needed for abundance claims.',
         )
         lastSubmittedRef.current = ''
         return
@@ -299,7 +299,7 @@ export function useAnalyze() {
       setIntent(result.intent)
       setStatus('idle')
       // Auto-chain: as soon as the intent is in, fire the full study so the
-      // preview/triage/workflow appear without a second button press.
+      // preview/assessment/workflow appear without a second button press.
       await runStudy({ question: trimmed, overrides: { ...result.intent, preferredLanguage } }, runId)
     } catch (caught) {
       if (runId !== runIdRef.current) return
@@ -309,7 +309,7 @@ export function useAnalyze() {
     }
   }
 
-  // Explicit "run now" trigger. Used by the Analyze study button.
+  // Explicit "run now" trigger. Used by the Assess study button.
   async function analyzeNow() {
     const trimmed = question.trim()
     if (!trimmed) return
@@ -341,7 +341,7 @@ export function useAnalyze() {
     setQuestion(value)
     // Wipe stale results as soon as the user starts editing — the previous
     // run's data no longer matches the question being typed. We do NOT
-    // kick off any analysis here; the user must click Analyze study to
+    // kick off any analysis here; the user must click Assess study to
     // run a new study.
     if (
       status !== 'idle' ||
@@ -372,7 +372,7 @@ export function useAnalyze() {
 
   function updateIntentField<K extends keyof StudyIntent>(key: K, value: StudyIntent[K]) {
     // Edits to the inline scope summary are local until the user explicitly
-    // presses the Re-run button (or Analyze study). This lets users refine
+    // presses the Re-run button (or Assess study). This lets users refine
     // multiple fields without burning an LLM call per keystroke.
     markScopeEdited()
     setIntent((current) => {
@@ -409,7 +409,7 @@ export function useAnalyze() {
     setWorkflow(null)
     setWorkflowError('')
     setError('')
-    // Demo prompts only fill the textarea — the user must press Analyze
+    // Demo prompts only fill the textarea — the user must press Assess
     // study to actually run the study. No auto-interpret, no debounced
     // kick-off. Keeping the prompts visible while idle is the signal
     // that nothing has started yet.
