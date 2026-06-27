@@ -29,7 +29,7 @@ GBIF Workbench is deliberately not a generic biodiversity chatbot, not a full mo
 ## How it works
 
 ```mermaid
-flowchart TD
+flowchart LR
     User[Researcher types a<br/>biodiversity question]
     Browser[Browser app]
 
