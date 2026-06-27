@@ -34,6 +34,10 @@ GBIF Workbench is deliberately not a generic biodiversity chatbot, not a full mo
 
 **Read the result card.** Four orthogonal readiness bars (Spatial, Temporal, Taxonomic, Data type fit), a clear support headline, and an explicit separation between claims occurrence-only data can support and claims it cannot.
 
+![GBIF Workbench exports and bias checks. Left: bias and limitation checks (4 total — one HIGH occurrence-only-mismatch risk, one MODERATE AI-fallback notice, two LOW coverage risks). Right: the export panel with Code / Query / Write-up / Cleaning tabs, showing the generated SQL cube starter query against the GBIF occurrence cube, the SQL and Predicate tabs, and the Analysis summary, Complete JSON, and Download everything (.zip) buttons](assets/3.png)
+
+**Export a reproducible workflow.** Every risk surfaced in the bias card has a matching line in the generated export package: R, Python, SQL, cleaning, methods, limitations, citations, Markdown, HTML, plus the analysis summary and complete JSON. The ZIP is built in the browser; the researcher runs `occ_download` locally with their own GBIF credentials and cites the resulting DOI.
+
 ## How it works
 
 ```mermaid
